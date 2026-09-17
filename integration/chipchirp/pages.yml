@@ -1,0 +1,77 @@
+# Copy this file to KO0I.github.io/.github/workflows/pages.yml.
+# It belongs in the WEBSITE repository, not the Workbench repository.
+name: Deploy Chipchirp and Planetary Climate Workbench
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out website and pinned submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: false
+
+      # The inspected Gemfile includes jekyll-feed and jekyll-mermaid, which
+      # were absent from Gemfile.lock. Allow Bundler to reconcile that here.
+      - name: Install website gems
+        env:
+          BUNDLE_FROZEN: 'false'
+          BUNDLE_DEPLOYMENT: 'false'
+        run: |
+          bundle config set --local path vendor/bundle
+          bundle install
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build the Jekyll website
+        env:
+          JEKYLL_ENV: production
+        run: bundle exec jekyll build --destination _site
+
+      - name: Add the precompiled Workbench
+        run: |
+          test -f _workbenches/planetary-climate-workbench/dist/index.html
+          mkdir -p _site/planetary-climate-workbench
+          cp -a _workbenches/planetary-climate-workbench/dist/. _site/planetary-climate-workbench/
+          test -s _site/planetary-climate-workbench/engine.wasm
+          test -s _site/planetary-climate-workbench/magic-engine.wasm
+          test -s _site/planetary-climate-workbench/terrain-solver-engine.wasm
+
+      - name: Upload complete website
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    runs-on: ubuntu-24.04
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

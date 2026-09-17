@@ -1,0 +1,84 @@
+/* Theme matched to https://chipchirp.digital/css/main.css (September 2026).
+   The palette belongs to the interface; scientific and planetary colors stay
+   in their original renderers and legend gradients. Inter is served locally. */
+@font-face{font-family:Inter;font-style:normal;font-weight:400;font-display:swap;src:url('./fonts/inter-400.woff') format('woff')}
+@font-face{font-family:Inter;font-style:normal;font-weight:500;font-display:swap;src:url('./fonts/inter-500.woff') format('woff')}
+@font-face{font-family:Inter;font-style:normal;font-weight:700;font-display:swap;src:url('./fonts/inter-700.woff') format('woff')}
+@font-face{font-family:Inter;font-style:normal;font-weight:900;font-display:swap;src:url('./fonts/inter-900.woff') format('woff')}
+
+:root{
+ --theme-background:#0f0e15;
+ --theme-panel:#09080f;
+ --theme-control:#1b101e;
+ --theme-hover:#2c1c32;
+ --theme-selected:#32203b;
+ --theme-text:#eeeeee;
+ --theme-soft:#ccc7d0;
+ --theme-muted:#aaaaaa;
+ --theme-dim:#8c8295;
+ --theme-accent:#a67ca8;
+ --theme-violet:#a860ff;
+ --theme-bright:#c69aff;
+ --theme-border:#302835;
+ --theme-control-border:#796580;
+ --theme-overlay:#09080fe6;
+ --theme-shadow:0 5px 10px rgba(0,0,0,.5);
+ font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",sans-serif;
+ color-scheme:dark;
+ background:var(--theme-background);
+ color:var(--theme-text);
+}
+body{font-family:inherit;font-size:1rem;line-height:1.7;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body>header{padding:28px 32px;background:var(--theme-panel)}
+.brand{font-size:28px;font-weight:900;letter-spacing:-1px;line-height:1.2;text-transform:uppercase}
+.brand span{font-size:inherit;font-weight:900;letter-spacing:inherit;color:var(--theme-text);margin-left:.25em}
+.tag,.eyebrow{font-weight:700;letter-spacing:.075em;line-height:1.5}
+h1,h2,h3,.gas-heading h2{font-weight:900;letter-spacing:-.04em;line-height:1.4;color:var(--theme-text)}
+h1{font-size:28px}h2{font-size:28px}h3{font-size:24px}
+label{line-height:1.5;font-weight:500}
+input,select,button{border-radius:8px;line-height:1.4;border-color:var(--theme-control-border)}
+input,select{background:var(--theme-control)}
+button{font-weight:700;transition:background-color .2s,color .2s,border-color .2s,box-shadow .2s}
+button:hover:enabled{border-color:var(--theme-accent)}
+button:active:enabled{border-color:var(--theme-violet)}
+.primary,.world-controls button#randomize,#solver-generate{background:var(--theme-control);border-color:var(--theme-accent);color:var(--theme-text)}
+.primary:hover:enabled,.world-controls button#randomize:hover:enabled,#solver-generate:hover:enabled{background:var(--theme-violet);border-color:var(--theme-violet);color:var(--theme-panel)}
+#run:disabled{background:var(--theme-hover);border-color:var(--theme-border);color:var(--theme-muted)}
+a{color:var(--theme-text);text-decoration:underline;text-decoration-color:var(--theme-control-border);text-underline-offset:4px;transition:color .2s,text-decoration-color .2s}
+a:hover{color:var(--theme-accent);text-decoration-color:var(--theme-accent)}
+summary{font-weight:700}summary:hover{color:var(--theme-accent)}
+input[type=range],progress{accent-color:var(--theme-violet)}
+::selection{background:var(--theme-violet);color:var(--theme-panel)}
+:focus-visible{outline:2px solid var(--theme-bright);outline-offset:3px}
+main>.workspace-nav{background:var(--theme-panel);padding-top:16px;padding-bottom:16px}
+.tabs{gap:8px}
+.tabs button{font-size:14px;font-weight:700;letter-spacing:.055em;text-transform:uppercase;border:1px solid transparent;border-radius:8px;padding:12px 16px}
+.tabs button[aria-selected=true],.generator-tabs button[aria-selected=true]{background:var(--theme-control);color:var(--theme-text);border:1px solid var(--theme-accent);box-shadow:inset 0 -2px var(--theme-violet);border-radius:8px}
+.tabs button:hover:enabled,.generator-tabs button:hover:enabled{background:var(--theme-hover);color:var(--theme-text)}
+.generator-tabs{gap:8px;padding-bottom:8px}
+.generator-tabs button{font-weight:700}
+.mode{border:1px solid var(--theme-accent);background:var(--theme-control);color:var(--theme-soft);border-radius:24px;padding:7px 12px}
+.map-wrap,.sky-gradient,.planet-view canvas,#gas-globe,#gas-map,#saturn-globe,#saturn-map,.saturn-poles canvas{border-radius:16px;box-shadow:var(--theme-shadow)}
+.terrain-heightmap canvas,.palette-sprite-wrap{border-radius:8px}
+.readouts strong{font-weight:700;letter-spacing:-.04em;color:var(--theme-text)}
+#saturn-control-layer,.saturn-current h3{font-weight:900;color:var(--theme-text)}
+.saturn-layer-list button{border-radius:24px;font-weight:700}
+.saturn-layer-list button[aria-pressed=true],.saturn-view-toolbar button[aria-pressed=true],#cloud-source[aria-pressed=true]{background:var(--theme-control);border-color:var(--theme-accent);color:var(--theme-text);box-shadow:inset 0 -2px var(--theme-violet)}
+.saturn-layer-list button[data-removed=true]{color:var(--theme-muted)}
+#saturn-controls input:focus-visible,#saturn-output button:focus-visible,#saturn-output canvas:focus-visible{outline-color:var(--theme-bright)}
+#saturn-core-note,.estimate-note{border-radius:8px;background:var(--theme-control)}
+article p,article li{color:var(--theme-soft)}
+article th,article td{border-color:var(--theme-border)}
+article h1{font-weight:900}article h2{font-weight:900}
+@media(max-width:980px){.brand{font-size:25px}}
+@media(max-width:680px){
+ body>header{padding:22px 20px;gap:16px;flex-wrap:wrap}
+ .brand{font-size:24px}
+ .brand span{display:block;font-size:24px;margin:2px 0 0}
+ .tag{max-width:100%;text-align:left}
+ h1,h2,.gas-heading h2{font-size:24px}
+ main>.workspace-nav{padding:12px 14px}
+ .workspace-nav .tabs{gap:8px}
+ .tabs button{font-size:14px;letter-spacing:.025em;padding:12px 8px}
+}
+@media(prefers-reduced-motion:reduce){button,a{transition:none}}
