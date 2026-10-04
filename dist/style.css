@@ -72,3 +72,28 @@ main>.workspace-nav{grid-column:1/-1;margin:0;padding:12px 26px;background:var(-
 
 /* Approximate gas atmosphere: shared field, globe and enlarged polar projections. */
 #saturn-controls input[type=range]{padding:0;min-height:36px;accent-color:var(--theme-violet)}#saturn-controls output{float:right;color:var(--theme-violet)}#gas-mode{margin-bottom:24px}.saturn-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.7fr);gap:24px;align-items:center;margin:24px 0}.saturn-world{min-width:0}.saturn-world>p{text-align:center}.saturn-views{justify-content:center;flex-wrap:wrap}.saturn-poles{display:grid;gap:20px}.saturn-poles figure{margin:0;min-width:0}.saturn-poles figcaption{font-size:16px;color:var(--theme-text);margin-bottom:8px}.saturn-poles figcaption span{display:block;font-size:14px;color:var(--theme-muted);margin-top:4px}.saturn-poles canvas{display:block;width:100%;max-width:256px;aspect-ratio:1;height:auto}.saturn-poles p{margin:6px 0 0}#saturn-globe{width:100%;height:auto;aspect-ratio:1;touch-action:none;cursor:grab}#saturn-map{display:block;width:100%;height:auto;aspect-ratio:2/1}#saturn-globe,#saturn-map,.saturn-poles canvas{background:var(--theme-panel);border:1px solid var(--theme-border);image-rendering:pixelated}@media(max-width:680px){.saturn-layout{grid-template-columns:1fr;gap:18px}.saturn-poles{grid-template-columns:1fr 1fr;gap:12px}.saturn-poles figcaption{font-size:14px}.saturn-world{max-width:400px;width:100%;margin:auto}}
+/* Polar storms explorer */
+.storms-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:28px;align-items:start;margin-bottom:26px}
+#storms-map{width:100%;height:auto;touch-action:none;user-select:none;background:var(--theme-panel);border:1px solid var(--theme-border);border-radius:6px}
+#storms-map text{user-select:none;font-family:inherit}
+.storms-grid{stroke:var(--theme-border);stroke-width:1}
+.storms-frame{fill:none;stroke:var(--theme-border);stroke-width:1}
+.storms-tick{fill:var(--theme-muted);font-size:11px}
+.storms-axis-label{fill:var(--theme-soft);font-size:13px}
+.storms-onset{stroke:var(--theme-soft);stroke-width:1.6;stroke-dasharray:8 5}
+.storms-band-line{stroke:var(--theme-muted);stroke-width:1;stroke-dasharray:2 5}
+.storms-chaos{stroke:var(--theme-violet);stroke-width:1.4;stroke-dasharray:10 4 2 4}
+.storms-covered{fill:none;stroke:var(--theme-accent);stroke-width:1;stroke-dasharray:3 4}
+.storms-covered-label{fill:var(--theme-accent);font-size:11px}
+.storms-zone{fill:var(--theme-muted);font-size:12px;font-style:italic}
+.storms-marker-halo{fill:var(--theme-violet);fill-opacity:.18}
+.storms-marker-dot{fill:var(--theme-violet);stroke:var(--theme-panel);stroke-width:2.5;cursor:grab}
+#storms-marker{outline:none;cursor:grab}
+#storms-marker:focus-visible .storms-marker-halo{fill-opacity:.5}
+.storms-pole{margin:0;text-align:center}
+.storms-pole canvas{max-width:288px;width:100%;margin:0 auto;aspect-ratio:1;border-radius:6px}
+.storms-pole figcaption{margin-bottom:10px;color:var(--theme-soft);font-size:14px}
+.storms-view-toggle{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.storms-view-toggle button{min-height:40px;padding:8px 12px}
+.storms-view-toggle button[aria-pressed=true]{background:var(--theme-selected);border-color:var(--theme-violet)}
+@media(max-width:1100px){.storms-layout{grid-template-columns:1fr}}
