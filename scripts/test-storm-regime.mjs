@@ -47,5 +47,9 @@ check('polar-storms.js reuses the shared regime relation and painter',explorer.i
 check('tank dye streaks are the default polar view',explorer.includes("let view='dye'")&&explorer.includes("setView('dye')")&&html.includes('id="storms-view-dye" type="button" aria-pressed="true"'));
 check('dye controls provide theme, rainbow, speed heatmap, radius and trail length',html.includes('id="storms-dye-color"')&&html.includes('value="theme" selected')&&html.includes('value="rainbow"')&&html.includes('value="heatmap"')&&html.includes('value="radius"')&&html.includes('id="storms-trail-length"')&&explorer.includes("dyeColor==='heatmap'")&&explorer.includes('trailLength*2'));
 
+check('index.html hosts the spherical streamline globe',html.includes('id="storms-globe"')&&html.includes('id="storms-globe-north"')&&html.includes('id="storms-globe-south"'));
+check('polar-storms.js advects sphere streamlines with polar vortices, bands and storms',explorer.includes('function stepGlobe')&&explorer.includes('function spawnStorm')&&explorer.includes('bandSpeed'));
+check('dye theme color follows the page --theme-violet',explorer.includes("themeRGB('--theme-violet'"));
+
 process.exitCode=failures?1:0;
 console.log(failures?failures+' failure(s)':'all checks passed');
