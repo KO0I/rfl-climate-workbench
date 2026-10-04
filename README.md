@@ -2,10 +2,7 @@
 
 A static browser workbench for procedural terrain, rocky-world climate, upper
 atmospheres, MagIC gas-shell experiments, and animated Saturn/Jupiter cutaways.
-Includes the Chipchirp theme, detailed Jupiter cloud tops, and glass/glowing interiors.
-
-**Start here: [GITHUB_SETUP.md](GITHUB_SETUP.md)** explains how to publish this
-repository and include it in `KO0I/KO0I.github.io` as a Git submodule.
+Includes the site theme, detailed Jupiter cloud tops, and glass/glowing interiors.
 
 ## Run locally
 
@@ -19,14 +16,6 @@ Open <http://localhost:8000/>. On Windows, `py -m http.server 8000 --directory d
 also works. Opening `index.html` directly with `file://` will not load its modules
 and simulation assets correctly.
 
-## Deploy
-
-Publish the **contents of `dist/`**, preserving every relative path. This folder
-includes the precompiled `.wasm` engines, boundary data, JavaScript, styles,
-local Inter fonts, source downloads, and licenses. Hosting does not require Node,
-Ruby, Python, a Fortran compiler, an API key, or a server-side simulation service.
-Python above is only a convenient local HTTP server.
-
 The browser runs the single-threaded numerical engines inside Web Workers.
 The current engines do not require SharedArrayBuffer, COOP, or COEP headers.
 The worker loader's `credentials: 'same-origin'` also works on public static
@@ -39,9 +28,6 @@ hosting; it does not require a ChatGPT session there.
 | `dist/` | Complete, ready-to-host app |
 | `model/` | Fortran/C sources, boundary data, and provenance |
 | `scripts/` | Build tools and existing verification scripts |
-| `DEVELOPMENT.md` | Original technical documentation and compiler setup |
-| `VALIDATION.md` | Recorded numerical and implementation checks |
-| `GITHUB_SETUP.md` | Public GitHub repository and website-submodule instructions |
 | `integration/chipchirp/pages.yml` | Deployment workflow to copy into the website repository |
 | `LICENSES.md` | Component-specific licensing references |
 
@@ -62,9 +48,6 @@ The export adds GitHub documentation and a website workflow, fixes the verificat
 page's back link for subdirectory hosting, and refreshes its bundled source ZIP.
 The simulation and rendering code is unchanged. No existing Git history or
 Sites-specific hosting configuration is included.
-
-No GitHub repository has been created by this export. Its setup instructions
-propose `KO0I/planetary-climate-workbench` as the new public repository.
 
 ## Licenses
 
