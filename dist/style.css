@@ -96,4 +96,9 @@ main>.workspace-nav{grid-column:1/-1;margin:0;padding:12px 26px;background:var(-
 .storms-view-toggle{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
 .storms-view-toggle button{min-height:40px;padding:8px 12px}
 .storms-view-toggle button[aria-pressed=true]{background:var(--theme-selected);border-color:var(--theme-violet)}
+.storms-dye-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;text-align:left;margin:14px auto 0;max-width:420px}
+.storms-dye-controls label{font-size:13px;color:var(--theme-soft)}
+.storms-dye-controls select,.storms-dye-controls input{display:block;width:100%;margin-top:5px}
+.storms-dye-controls output{float:right;color:var(--theme-bright);font-variant-numeric:tabular-nums}
+@media(max-width:520px){.storms-dye-controls{grid-template-columns:1fr}}
 @media(max-width:1100px){.storms-layout{grid-template-columns:1fr}}

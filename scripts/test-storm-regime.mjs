@@ -44,6 +44,8 @@ const app=readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
 check('app.js wires the polar storms tab',app.includes("import {initPolarStormsTab} from './polar-storms.js';")&&app.includes("stormsTab.setActive(name==='storms')"));
 const explorer=readFileSync(new URL('../dist/polar-storms.js',import.meta.url),'utf8');
 check('polar-storms.js reuses the shared regime relation and painter',explorer.includes("from './storm-regime.js'")&&explorer.includes("from './saturn-model.js'"));
+check('tank dye streaks are the default polar view',explorer.includes("let view='dye'")&&explorer.includes("setView('dye')")&&html.includes('id="storms-view-dye" type="button" aria-pressed="true"'));
+check('dye controls provide theme, rainbow, speed heatmap, radius and trail length',html.includes('id="storms-dye-color"')&&html.includes('value="theme" selected')&&html.includes('value="rainbow"')&&html.includes('value="heatmap"')&&html.includes('value="radius"')&&html.includes('id="storms-trail-length"')&&explorer.includes("dyeColor==='heatmap'")&&explorer.includes('trailLength*2'));
 
 process.exitCode=failures?1:0;
 console.log(failures?failures+' failure(s)':'all checks passed');

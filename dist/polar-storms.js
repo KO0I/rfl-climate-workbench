@@ -19,7 +19,7 @@ export function initPolarStormsTab(){
  // point (Ro ≈ 0.024, E ≈ 1.9e-5), which the relation maps to the hexagon.
  const LX0=-2.6,LX1=0,LY0=-6,LY1=-3;
  let logRo=-1.61,logE=-4.72,Ro=Math.pow(10,-1.61),E=Math.pow(10,-4.72),info=classifyPolarStorm(Ro,E);
- let view='bands',active=false,paused=!!reduced?.matches,time=0,raf=null,lastTime=0,lastPaint=0,dirty=true,drag=false;
+ let view='dye',active=false,paused=!!reduced?.matches,time=0,raf=null,lastTime=0,lastPaint=0,dirty=true,drag=false;
 
  // --- Regime map (log-log; every boundary is a straight line here) ---
  const MW=560,MH=420,ML=66,MR=16,MT=14,MB=46;
@@ -70,13 +70,14 @@ export function initPolarStormsTab(){
  // Dye-streak emulation: a counter-rotating shear layer (zero velocity at the
  // jet radius R0) carries a prescribed m-fold wave; tracers are advected
  // kinematically, like dye in the tank. Not a fluid solution.
- const CX=144,CY=144,R0=100,SIG=33,DEL=25,NP=650,TR=48;
+ const CX=144,CY=144,R0=100,SIG=33,DEL=25,NP=650;
+ let trailLength=48,dyeColor='theme';
  let phase=0,frame=0;
  const gauss=()=>Math.sqrt(-2*Math.log(Math.random()||1e-9))*Math.cos(TAU*Math.random());
- const parts=Array.from({length:NP},()=>({x:0,y:0,trail:[]}));
+ const parts=Array.from({length:NP},()=>({x:0,y:0,speed:0,trail:[]}));
  function seed(p){
   const phi=Math.random()*TAU,r=Math.random()<.7?R0+SIG*gauss():138*Math.sqrt(Math.random());
-  p.x=CX+r*Math.cos(phi);p.y=CY+r*Math.sin(phi);p.trail.length=0;
+  p.x=CX+r*Math.cos(phi);p.y=CY+r*Math.sin(phi);p.speed=0;p.trail.length=0;
  }
  for(const p of parts)seed(p);
  function stepDye(dt){
@@ -93,12 +94,26 @@ export function initPolarStormsTab(){
    const x2=(r-R0)/SIG,g=Math.exp(-x2*x2),a=m*(phi-phase);
    const vr=-A*g*m*Math.sin(a)/Math.max(r,10);
    const vt=r*Os*(-Math.tanh((r-R0)/DEL))+A*g*2*(r-R0)/(SIG*SIG)*Math.cos(a);
-   p.x+=(vr*Math.cos(phi)-vt*Math.sin(phi))*dt;
-   p.y+=(vr*Math.sin(phi)+vt*Math.cos(phi))*dt;
+   const vx=vr*Math.cos(phi)-vt*Math.sin(phi),vy=vr*Math.sin(phi)+vt*Math.cos(phi);
+   p.x+=vx*dt;p.y+=vy*dt;p.speed=Math.hypot(vx,vy);
    const rr=Math.hypot(p.x-CX,p.y-CY);
    if(rr>139||rr<5)seed(p);
-   else if(record){p.trail.push(p.x,p.y);if(p.trail.length>TR*2)p.trail.splice(0,2);}
+   else if(record){p.trail.push(p.x,p.y);if(p.trail.length>trailLength*2)p.trail.splice(0,2);}
   }
+ }
+ const mix=(a,b,t)=>a+(b-a)*t;
+ function heatColor(t){
+  t=clamp(t,0,1);
+  const stops=[[48,18,59],[128,44,140],[226,75,83],[255,190,74],[255,245,170]],p=t*(stops.length-1),i=Math.min(stops.length-2,Math.floor(p)),f=p-i;
+  return stops[i].map((v,k)=>Math.round(mix(v,stops[i+1][k],f)));
+ }
+ function streakColor(p){
+  if(dyeColor==='theme')return [168,96,255];
+  const dx=p.x-CX,dy=p.y-CY,r=Math.hypot(dx,dy);
+  if(dyeColor==='heatmap')return heatColor(p.speed/70);
+  const hue=dyeColor==='radius'?clamp((r-35)/105,0,1)*280:(Math.atan2(dy,dx)/TAU+1)%1*360;
+  const h=hue/60,c=.9,x=c*(1-Math.abs(h%2-1));let rgb=h<1?[c,x,0]:h<2?[x,c,0]:h<3?[0,c,x]:h<4?[0,x,c]:h<5?[x,0,c]:[c,0,x];
+  return rgb.map(v=>Math.round((v+.08)*236));
  }
  function drawDye(){
   pctx.fillStyle='rgb(9,16,29)';pctx.fillRect(0,0,288,288);
@@ -114,10 +129,11 @@ export function initPolarStormsTab(){
   for(const p of parts){
    const t=p.trail,n=t.length/2;
    if(n<2)continue;
+   const color=streakColor(p),rgb=color.join(',');
    const mid=Math.max(1,Math.floor(n/2));
-   pctx.strokeStyle='rgba(126,200,255,.10)';
+   pctx.strokeStyle='rgba('+rgb+',.10)';
    pctx.beginPath();pctx.moveTo(t[0],t[1]);for(let i=1;i<mid;i++)pctx.lineTo(t[2*i],t[2*i+1]);pctx.stroke();
-   pctx.strokeStyle='rgba(126,200,255,.42)';
+   pctx.strokeStyle='rgba('+rgb+',.52)';
    pctx.beginPath();pctx.moveTo(t[2*mid-2],t[2*mid-1]);for(let i=mid;i<n;i++)pctx.lineTo(t[2*i],t[2*i+1]);pctx.stroke();
   }
  }
@@ -188,11 +204,18 @@ export function initPolarStormsTab(){
   view=v;
   $('storms-view-bands').setAttribute('aria-pressed',String(v==='bands'));
   $('storms-view-dye').setAttribute('aria-pressed',String(v==='dye'));
+  $('storms-dye-controls').hidden=v!=='dye';
   $('storms-note').textContent=v==='dye'?'Dye-streak emulation of the tank experiments: a counter-rotating shear layer (the flow inside the jet radius moves against the flow outside) carries a prescribed m-fold wave. Tracers are advected kinematically — this is not a fluid simulation.':'Cloud-band appearance from the workbench’s Saturn painter, with the polar jet wavenumber set by the regime relation. Colors are illustrative.';
   dirty=true;schedule();
  }
  $('storms-view-bands').onclick=()=>setView('bands');
  $('storms-view-dye').onclick=()=>setView('dye');
+ $('storms-dye-color').onchange=()=>{dyeColor=$('storms-dye-color').value;dirty=true;schedule();};
+ $('storms-trail-length').oninput=()=>{
+  trailLength=Number($('storms-trail-length').value);$('storms-trail-value').textContent=trailLength;
+  for(const p of parts)if(p.trail.length>trailLength*2)p.trail.splice(0,p.trail.length-trailLength*2);
+  dirty=true;schedule();
+ };
  $('storms-pause').onclick=()=>{paused=!paused;status();lastTime=0;schedule();};
  const num=id=>Number($(id).value);
  function applyWorld(){
@@ -208,6 +231,6 @@ export function initPolarStormsTab(){
  document.addEventListener('visibilitychange',()=>{stop();schedule();});
  window.addEventListener('pagehide',stop);
 
- sync();setView('bands');status();
+ sync();setView('dye');status();
  return {setActive(on){active=on;stop();if(on){dirty=true;schedule();}},get active(){return active;}};
 }

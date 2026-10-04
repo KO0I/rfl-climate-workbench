@@ -163,7 +163,8 @@
 <div class="storms-map-wrap"><svg id="storms-map" viewBox="0 0 560 420" role="img" aria-label="Regime map of Rossby number versus Ekman number, with a draggable point"></svg>
 <p class="control-note">Dashed: onset Ro = 27·E^0.72 · fine dots: wavenumber bands · dash-dot: chaos boundary · dotted rectangle: covered by tank experiments. Click or drag to move the point.</p></div>
 <figure class="storms-pole"><figcaption><span id="storms-caption">North polar view · hexagon · m = 6</span></figcaption><canvas id="storms-pole" width="288" height="288" role="img" aria-label="North polar storm appearance for the current regime point"></canvas>
-<div class="storms-view-toggle" role="group" aria-label="Polar view style"><button id="storms-view-bands" type="button" aria-pressed="true">Cloud bands</button><button id="storms-view-dye" type="button" aria-pressed="false">Tank dye streaks</button><button id="storms-pause" type="button">Pause animation</button></div>
+<div class="storms-view-toggle" role="group" aria-label="Polar view style"><button id="storms-view-bands" type="button" aria-pressed="false">Cloud bands</button><button id="storms-view-dye" type="button" aria-pressed="true">Tank dye streaks</button><button id="storms-pause" type="button">Pause animation</button></div>
+<div id="storms-dye-controls" class="storms-dye-controls"><label for="storms-dye-color">Streak colors<select id="storms-dye-color"><option value="theme" selected>Theme purple</option><option value="rainbow">Rainbow · direction</option><option value="heatmap">Heatmap · speed</option><option value="radius">Spectrum · radius</option></select></label><label for="storms-trail-length">Stream length <output id="storms-trail-value">48</output><input id="storms-trail-length" type="range" min="12" max="120" step="4" value="48"></label></div>
 <p id="storms-note" class="control-note"></p>
 </figure>
 </div>
