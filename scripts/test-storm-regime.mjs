@@ -36,5 +36,14 @@ check('polarBoundary default south equals explicit m=10',polarBoundary(0.37,fals
 check('polarBoundary m<3 renders the axisymmetric limit',polarBoundary(0.37,true,2.5,0.8,0)===12&&polarBoundary(0.37,false,2.5,0.8,2)===28);
 check('south boundary phase drifts with time',polarBoundary(0.1,false,1,1)!==polarBoundary(0.1,false,2,1));
 
+// The dedicated Polar storms tab stays wired to the shared modules.
+import {readFileSync} from 'node:fs';
+const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
+check('index.html has a Polar storms tab, panel and settings',html.includes('id="tab-storms"')&&html.includes('id="panel-storms"')&&html.includes('id="storms-settings"'));
+const app=readFileSync(new URL('../dist/app.js',import.meta.url),'utf8');
+check('app.js wires the polar storms tab',app.includes("import {initPolarStormsTab} from './polar-storms.js';")&&app.includes("stormsTab.setActive(name==='storms')"));
+const explorer=readFileSync(new URL('../dist/polar-storms.js',import.meta.url),'utf8');
+check('polar-storms.js reuses the shared regime relation and painter',explorer.includes("from './storm-regime.js'")&&explorer.includes("from './saturn-model.js'"));
+
 process.exitCode=failures?1:0;
 console.log(failures?failures+' failure(s)':'all checks passed');

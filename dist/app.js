@@ -2,6 +2,7 @@ import './model-config.js';
 import './terrain.js';
 import {initMagicTab} from './magic-tab.js';
 import {initSaturnTab} from './saturn-tab.js';
+import {initPolarStormsTab} from './polar-storms.js';
 import {generateSolver,solverDefaults,solverPreset,solverKnobs} from './terrain-solver.js';
 import {randomSurface} from './planet-tool/random-surface.js';
 import {Playback} from './playback.js';
@@ -48,6 +49,7 @@ const scientific=key=>!['surface','elevation'].includes(key);
 const climateBusy=()=>['loading','running','paused'].includes(state);
 const gasTab=initMagicTab({beforeRun:()=>{if(state==='loading')reset();else if(state==='running')togglePause();}});
 const saturnTab=initSaturnTab();
+const stormsTab=initPolarStormsTab();
 function syncGasMode(){
  const mode=$('gas-mode').value,approximate=['saturn','jupiter'].includes(mode),on=activeTab==='gas';
  document.body.classList.toggle('saturn-mode',on&&approximate);
@@ -373,13 +375,14 @@ for(const panel of document.querySelectorAll('.playback')){
 function showTab(name){
  activeTab=name;
  for(const tab of document.querySelectorAll('.workspace-nav [role=tab]')){const on=tab.id==='tab-'+name;tab.setAttribute('aria-selected',String(on));tab.tabIndex=on?0:-1;$(tab.getAttribute('aria-controls')).hidden=!on;}
- $('field-toolbar').hidden=$('field-help').hidden=['atmosphere','gas'].includes(name);
- $('rocky-settings').hidden=name==='gas';$('gas-settings').hidden=name!=='gas';
- syncGasMode();
- if(name!=='gas')updateResolutionNote();
- if(name==='gas')$('extreme-warning').hidden=true;
+ $('field-toolbar').hidden=$('field-help').hidden=['atmosphere','gas','storms'].includes(name);
+ $('rocky-settings').hidden=['gas','storms'].includes(name);$('gas-settings').hidden=name!=='gas';$('storms-settings').hidden=name!=='storms';
+ syncGasMode();stormsTab.setActive(name==='storms');
+ if(name==='storms')$('model-resolution').textContent='Polar storms · laboratory regime relation';
+ else if(name!=='gas')updateResolutionNote();
+ if(['gas','storms'].includes(name))$('extreme-warning').hidden=true;
  else $('extreme-warning').hidden=!surfaceProfiles[selection.planet];
- if(!['atmosphere','gas'].includes(name))render();
+ if(!['atmosphere','gas','storms'].includes(name))render();
 }
 const tabs=[...document.querySelectorAll('.workspace-nav [role=tab]')];
 for(const tab of tabs){
