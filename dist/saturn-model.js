@@ -1,17 +1,22 @@
 // Kinematic appearance model. These paths are prescribed, not a fluid solution.
 const TAU=2*Math.PI, DEG=Math.PI/180;
 export const saturnDefaults={wave:1,detail:1,speed:1};
-export function polarBoundary(lon,north,time,wave=1){
- const sides=north?6:10,phase=north?0:time*.012;
- const sector=TAU/sides,a=((lon-phase+sector/2)%sector+sector)%sector-sector/2;
+// sides: azimuthal wavenumber of the polar jet meander. Unset keeps the
+// prescribed defaults (6 north, 10 south); sides < 3 renders the axisymmetric
+// (stable) limit, a circle. Regime-derived values come from storm-regime.js.
+export function polarBoundary(lon,north,time,wave=1,sides){
+ const m=sides??(north?6:10);
  const radius=north?12:28;
- const polygon=radius*Math.cos(Math.PI/sides)/Math.cos(a);
+ if(!(m>=3))return radius;
+ const phase=north?0:time*.012;
+ const sector=TAU/m,a=((lon-phase+sector/2)%sector+sector)%sector-sector/2;
+ const polygon=radius*Math.cos(Math.PI/m)/Math.cos(a);
  const strength=wave*(north?1:.86+.14*Math.sin(time*.09));
  return radius+strength*(polygon-radius);
 }
-export function cloudSample(lon,lat,time,{wave=1,detail=1}={}){
+export function cloudSample(lon,lat,time,{wave=1,detail=1,sidesNorth,sidesSouth}={}){
  const north=lat>=0,abs=Math.abs(lat),polarDistance=90-abs/DEG;
- const boundary=polarBoundary(lon,north,time,wave),d=polarDistance-boundary;
+ const boundary=polarBoundary(lon,north,time,wave,north?sidesNorth:sidesSouth),d=polarDistance-boundary;
  const envelope=Math.exp(-d*d/18),cosLat=Math.cos(lat);
  // Differential east/west flow with periodic longitude harmonics; no map seam.
  const flow=.16*Math.cos(lat*12)+.10*cosLat*cosLat;
@@ -55,10 +60,12 @@ export function paintClouds(image,coordinates,time,config){
  return image;
 }
 
-// Every cloud deck keeps the same six/ten-sided boundaries. Only the small
-// eddies and band structure are warped; depth continuation is speculative.
+// Every cloud deck keeps the same polar boundaries: the prescribed six/ten
+// sides by default, or the wavenumber derived from the Ro/E regime relation
+// when the regime controls are engaged. Only the small eddies and band
+// structure are warped; depth continuation is speculative.
 export function layerSample(lon,lat,time,index,config){
- const {wave=1,detail=1,turbulence=1,flow=1,pattern='jets',palette='color'}=config;
+ const {wave=1,detail=1,turbulence=1,flow=1,pattern='jets',palette='color',sidesNorth,sidesSouth}=config;
  const cos=Math.cos(lat),t=time*flow,adv=lon-t*(.14*Math.cos(lat*12)+.1*cos*cos);
  const warp=turbulence*.045*Math.sin(adv*9+2*Math.sin(lat*19))*cos;
  let texture;
@@ -66,7 +73,7 @@ export function layerSample(lon,lat,time,index,config){
  else if(pattern==='filaments')texture=Math.sin(adv*36+Math.sin(lat*57+warp*20)*3)+.4*Math.sin(adv*63-lat*73);
  else texture=Math.sin(adv*18+Math.sin(lat*37+warp*10)*2)+.5*Math.sin(adv*33-lat*49);
  const band=Math.sin((lat+warp)*34)+.35*Math.sin(lat*79+warp*7);
- const d=90-Math.abs(lat)/DEG-polarBoundary(lon,lat>=0,time,wave);
+ const d=90-Math.abs(lat)/DEG-polarBoundary(lon,lat>=0,time,wave,lat>=0?sidesNorth:sidesSouth);
  const cap=1/(1+Math.exp(Math.max(-40,Math.min(40,d*2))));
  const jet=Math.exp(-d*d/.26),eye=Math.exp(-Math.pow((90-Math.abs(lat)/DEG)/1.6,2));
  const value=Math.max(.03,Math.min(1,.63+.10*band+detail*.055*texture*cos-cap*.17+.28*jet-.30*eye));

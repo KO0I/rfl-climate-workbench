@@ -3,6 +3,7 @@ import {SATURN_LAYERS,readDroneXpm,clamp} from './saturn-layers.js';
 import {makeGeometry,paintSaturn} from './saturn-renderer.js';
 import {JUPITER_LAYERS} from './jupiter-layers.js';
 import {paintJupiterLayer} from './jupiter-model.js';
+import {classifyPolarStorm,regimeFromWorld} from './storm-regime.js';
 
 const presets={saturn:{name:'Saturn-like',layers:SATURN_LAYERS,paint:paintLayer,rings:true},jupiter:{name:'Jupiter-like',layers:JUPITER_LAYERS,paint:paintJupiterLayer,rings:false}};
 const jupiterReference=`<p>Cloud decks follow the supplied Jupiter reference: haze, ammonia ice, ammonium hydrosulfide ice, and water ice, above a hydrogen-and-helium envelope. Layer thicknesses are exaggerated and the deep envelope is compressed.</p><p>Belts, the Great Red Spot, and polar cyclone clusters are animated appearance patterns. Their continuation into individual deep cloud decks is speculative. These controls do not solve pressure, chemistry or heat transport.</p><p>The blue-green glass, transparent envelope and red-orange emission are artistic choices. Metallic hydrogen is a deep conducting fluid region; Jupiter’s heavy-element interior is diffuse, not a sharply bounded sphere. The center uses Saturn’s mirror-core proportions.</p><p><a href="https://science.nasa.gov/jupiter/jupiter-facts/" target="_blank" rel="noreferrer">NASA · Jupiter’s clouds, interior and polar cyclones</a></p>`;
@@ -21,6 +22,25 @@ export function initSaturnTab(){
  let configs=makeLayerConfigs(),current=0,removed=[0,0,0,0,0],yaw=.45,pitch=-.42,opening=105,rings=true,cutaway=true,environment='studio',coreRatio=12/26,zoom=1;
  let active=false,paused=!!reduced?.matches,time=0,speed=1,raf=null,lastTime=0,lastPaint=0,dirty=true,geometryDirty=true,geometry=null,drag=null,xpmLoaded=false;
  const settingConfig=key=>key.startsWith('emission')?configs[CORE_LAYER]:configs[current];
+ const STORM_NAMES={2:'ellipse',3:'triangle',4:'square',5:'pentagon',6:'hexagon',7:'heptagon',8:'octagon',9:'nonagon',10:'decagon'};
+ let stormInfo={north:{regime:'polygon',m:6},south:{regime:'polygon',m:10}};
+ function poleRegime(jet,nu,jetRadiusDeg){
+  const {Ro,E}=regimeFromWorld({rotationHours:10.7,planetRadius:6.03e7,jetSpeed:jet,eddyViscosity:nu,jetRadiusDeg});
+  return {Ro,E,...classifyPolarStorm(Ro,E)};
+ }
+ // Opt-in per layer: the prescribed 6/10 boundaries stay until a regime
+ // slider moves, which keeps default rendering bit-identical to before.
+ function applyRegime(index){
+  const c=configs[index];if(!c.stormRegime)return;
+  const jet=c.jetSpeed??100,nu=Math.pow(10,c.logEddyVisc??6);
+  const north=poleRegime(jet,nu,12),south=poleRegime(jet,nu,28);
+  stormInfo={north,south};
+  const sides=r=>r.regime==='stable'?0:r.regime==='chaotic'?3:r.m;
+  c.sidesNorth=sides(north);c.sidesSouth=sides(south);
+  const describe=r=>r.regime==='polygon'?STORM_NAMES[r.m]+' m='+r.m+(r.extrapolated?' · extrapolated':''):r.regime==='stable'?'stable · axisymmetric':'chaotic · rendered m=3 (appearance license)';
+  const out=$('saturn-storm-readout');
+  if(out)out.textContent='Ro '+north.Ro.toFixed(3)+' · E '+north.E.toExponential(1)+' → N: '+describe(north)+' / S: '+describe(south);
+ }
  const range=(key,label,min,max,step)=>`<label for="saturn-${key}">${label}<output id="saturn-${key}-value">${Number(settingConfig(key)[key]).toFixed(2)}</output><input id="saturn-${key}" data-setting="${key}" type="range" min="${min}" max="${max}" step="${step}" value="${settingConfig(key)[key]}"></label>`;
  const color=(key,label)=>`<label class="saturn-color" for="saturn-${key}">${label}<input id="saturn-${key}" data-setting="${key}" type="color" value="${settingConfig(key)[key]}"></label>`;
  const select=(key,label,options)=>`<label for="saturn-${key}">${label}<select id="saturn-${key}" data-setting="${key}">${options.map(([v,t])=>`<option value="${v}" ${configs[current][key]===v?'selected':''}>${t}</option>`).join('')}</select></label>`;
@@ -40,6 +60,10 @@ export function initSaturnTab(){
    if(!hydrogen)html+=range('wave',jupiter?'Polar cyclone strength':'Polar wave strength',0,2,.05);
    if(jupiter&&!hydrogen)html+=range('storm','Great Red Spot strength',0,1.5,.05);
    html+=range('flow','Layer flow speed',0,3,.05);
+   if(!jupiter){
+    const jet=configs[current].jetSpeed??100,logNu=configs[current].logEddyVisc??6,engaged=!!configs[current].stormRegime;
+    html+=`<div class="storm-regime"><span class="storm-regime-title">Polar storm regime · laboratory Ro/E relation, appearance only</span><label for="saturn-jetSpeed">Polar jet speed<output id="saturn-jetSpeed-value">${jet} m/s</output><input id="saturn-jetSpeed" data-storm="jetSpeed" type="range" min="20" max="400" step="5" value="${jet}"></label><label for="saturn-eddyVisc">Eddy viscosity, log₁₀ m²/s<output id="saturn-eddyVisc-value">${logNu.toFixed(1)}</output><input id="saturn-eddyVisc" data-storm="logEddyVisc" type="range" min="2" max="6" step="0.1" value="${logNu}"></label><span id="saturn-storm-readout">${engaged?'':'Prescribed hexagon/decagon boundaries. Move a regime slider to derive wavenumbers from Ro and E.'}</span></div>`;
+   }
   }
   $('saturn-layer-controls').innerHTML=html;
   $('saturn-neutral').hidden=!(water||metal);
@@ -50,6 +74,13 @@ export function initSaturnTab(){
    const out=$('saturn-'+key+'-value');if(out)out.textContent=Number(input.value).toFixed(2);
    dirty=true;syncLabels();schedule();
   }));
+  $('saturn-layer-controls').querySelectorAll('[data-storm]').forEach(input=>input.addEventListener('input',()=>{
+   const key=input.dataset.storm;configs[current][key]=Number(input.value);configs[current].stormRegime=true;
+   const out=$(key==='jetSpeed'?'saturn-jetSpeed-value':'saturn-eddyVisc-value');
+   if(out)out.textContent=key==='jetSpeed'?input.value+' m/s':Number(input.value).toFixed(1);
+   applyRegime(current);dirty=true;syncLabels();schedule();
+  }));
+  if(presetId==='saturn')applyRegime(current);
  }
  function syncLabels(){
   const layer=layerDefinitions[current],metal=current===CORE_LAYER,jupiter=presetId==='jupiter',hydrogen=layer.id==='hydrogen';
@@ -68,8 +99,9 @@ export function initSaturnTab(){
   $('saturn-core-note').textContent=jupiter?'Restore the water layer to view the red-orange glow through blue-green glass. The intervening hydrogen envelope is translucent.':'The polar cloud patterns end above this reflective center. Restore the water layer to see the glass shell and mirror core together.';
   $('saturn-map-layer').textContent=layer.name+(current===WATER_LAYER?' · cloud markings':' · longitude / latitude');
   $('saturn-polar-note').textContent=jupiter?'Cyclone clusters inspired by Juno: eight surrounding a northern central cyclone, five around the southern one. Their appearance at depth is speculative.':'Hexagon / decagon retained through water ice; their continuity at depth is speculative.';
-  $('saturn-north-caption').textContent=jupiter?'North · 8 + 1 cyclones':'North · hexagon · 6 sides';
-  $('saturn-south-caption').textContent=jupiter?'South · 5 + 1 cyclones':'South · decagon · 10 sides';
+  const cap=r=>r.regime==='polygon'?STORM_NAMES[r.m]+' · '+r.m+' sides':r.regime==='stable'?'axisymmetric':'chaotic';
+  $('saturn-north-caption').textContent=jupiter?'North · 8 + 1 cyclones':'North · '+cap(stormInfo.north);
+  $('saturn-south-caption').textContent=jupiter?'South · 5 + 1 cyclones':'South · '+cap(stormInfo.south);
   $('saturn-south-range').textContent=jupiter?'65° S–90° S':'40° S–90° S';
   $('saturn-interpretation').textContent=metal?(jupiter?'Reflective fluid · red-orange internal glow':'Reflective fluid · artistic center'):current===WATER_LAYER?(jupiter?'Blue-green glass · refracted core glow':'Glass interpretation · neutral drone'):hydrogen?'Translucent hydrogen envelope · artistic compression':configs[current].palette==='infrared'?'False-color infrared interpretation':'Speculative cloud appearance';
   for(const button of $('saturn-layer-list').querySelectorAll('button')){
@@ -78,8 +110,8 @@ export function initSaturnTab(){
   }
   canvas.setAttribute('aria-label',`${preset.name}: ${layer.name}. ${cutaway?'Three-dimensional cutaway':'Whole sphere'} with ${current} outer layers removed. Drag or use arrow keys to rotate.`);
   map.setAttribute('aria-label',`${layer.name} cloud markings, longitude and latitude. North is at top.`);
-  $('saturn-north').setAttribute('aria-label',`${layer.name}: north polar cloud markings with ${jupiter?'eight cyclones surrounding a central cyclone':'a hexagon'}.`);
-  $('saturn-south').setAttribute('aria-label',`${layer.name}: south polar cloud markings with ${jupiter?'five cyclones surrounding a central cyclone':'a decagon'}.`);
+  $('saturn-north').setAttribute('aria-label',`${layer.name}: north polar cloud markings with ${jupiter?'eight cyclones surrounding a central cyclone':stormInfo.north.regime==='polygon'?'a '+STORM_NAMES[stormInfo.north.m]:'an axisymmetric boundary'}.`);
+  $('saturn-south').setAttribute('aria-label',`${layer.name}: south polar cloud markings with ${jupiter?'five cyclones surrounding a central cyclone':stormInfo.south.regime==='polygon'?'a '+STORM_NAMES[stormInfo.south.m]:'an axisymmetric boundary'}.`);
   status();
  }
  function status(){
@@ -89,6 +121,7 @@ export function initSaturnTab(){
  }
  function setLayer(index){
   current=clamp(Math.round(index),0,CORE_LAYER);
+  if(!configs[current].stormRegime)stormInfo={north:{regime:'polygon',m:6},south:{regime:'polygon',m:10}};
   if(reduced?.matches)removed=removed.map((v,i)=>i<current?1:0);
   geometryDirty=true;dirty=true;controls();syncLabels();schedule();
  }
@@ -133,6 +166,7 @@ export function initSaturnTab(){
   presetId=id;preset=presets[id];layerDefinitions=preset.layers;WATER_LAYER=layerDefinitions.findIndex(l=>l.id==='water');CORE_LAYER=layerDefinitions.findIndex(l=>l.id==='metal');
   const state=savedStates.get(id)||{configs:makeLayerConfigs(),current:0,removed:layerDefinitions.map(()=>0),yaw:.45,pitch:-.42,opening:105,rings:preset.rings,cutaway:true,environment:'studio',zoom:1,time:0,speed:1,paused:!!reduced?.matches};
   ({configs,current,removed,yaw,pitch,opening,rings,cutaway,environment,zoom,time,speed,paused}=state);
+  if(!configs[current].stormRegime)stormInfo={north:{regime:'polygon',m:6},south:{regime:'polygon',m:10}};
   textures=layerDefinitions.map(()=>({width:256,height:128,data:new Uint8ClampedArray(256*128*4)}));
   poles[1].coordinates=createCoordinates(256,256,'south',id==='jupiter'?25:50);
   $('saturn-reference').innerHTML=id==='jupiter'?jupiterReference:saturnReference;
@@ -146,7 +180,7 @@ export function initSaturnTab(){
  $('saturn-peel').onclick=()=>setLayer(current+1);$('saturn-restore').onclick=()=>setLayer(current-1);
  $('saturn-pause').onclick=()=>{paused=!paused;status();lastTime=0;schedule();};
  $('saturn-speed').oninput=()=>{speed=Number($('saturn-speed').value);$('saturn-speed-value').textContent=speed.toFixed(1)+'×';};
- $('saturn-reset-layer').onclick=()=>{configs[current]={...layerDefinitions[current].defaults};controls();syncLabels();dirty=true;schedule();};
+ $('saturn-reset-layer').onclick=()=>{configs[current]={...layerDefinitions[current].defaults};stormInfo={north:{regime:'polygon',m:6},south:{regime:'polygon',m:10}};controls();syncLabels();dirty=true;schedule();};
  $('saturn-neutral').onclick=()=>{configs[WATER_LAYER]={...layerDefinitions[WATER_LAYER].defaults};configs[CORE_LAYER]={...layerDefinitions[CORE_LAYER].defaults};environment='studio';$('saturn-environment').value=environment;controls();syncLabels();dirty=true;schedule();};
  $('saturn-reset').onclick=()=>{configs=makeLayerConfigs();time=0;speed=1;$('saturn-speed').value=1;$('saturn-speed-value').textContent='1.0×';yaw=.45;pitch=-.42;opening=105;$('saturn-cut').value=105;cutaway=true;rings=preset.rings;zoom=1;$('saturn-zoom').value=1;$('saturn-zoom-value').textContent='1.0×';environment='studio';$('saturn-environment').value=environment;setLayer(0);};
  $('saturn-environment').onchange=()=>{environment=$('saturn-environment').value;dirty=true;schedule();};
