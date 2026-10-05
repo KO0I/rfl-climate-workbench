@@ -102,3 +102,9 @@ main>.workspace-nav{grid-column:1/-1;margin:0;padding:12px 26px;background:var(-
 .storms-dye-controls output{float:right;color:var(--theme-bright);font-variant-numeric:tabular-nums}
 @media(max-width:520px){.storms-dye-controls{grid-template-columns:1fr}}
 @media(max-width:1100px){.storms-layout{grid-template-columns:1fr}}
+/* Spherical streamline globe */
+.storms-globe-section{margin-top:6px}
+.storms-globe{margin:0;text-align:center}
+#storms-globe{width:100%;max-width:520px;aspect-ratio:1;border-radius:8px;touch-action:none;cursor:grab;background:var(--theme-background);border:1px solid var(--theme-border)}
+#storms-globe:focus-visible{outline:2px solid var(--theme-violet);outline-offset:2px}
+.storms-globe-views{justify-content:center;margin-top:12px}
