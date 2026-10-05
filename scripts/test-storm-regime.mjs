@@ -50,6 +50,8 @@ check('dye controls provide theme, rainbow, speed heatmap, radius and trail leng
 check('index.html hosts the spherical streamline globe',html.includes('id="storms-globe"')&&html.includes('id="storms-globe-north"')&&html.includes('id="storms-globe-south"'));
 check('polar-storms.js advects sphere streamlines with polar vortices, bands and storms',explorer.includes('function stepGlobe')&&explorer.includes('function spawnStorm')&&explorer.includes('bandSpeed'));
 check('dye theme color follows the page --theme-violet',explorer.includes("themeRGB('--theme-violet'"));
+check('globe poles reuse the dye plate ring geometry and spin rate',explorer.includes('GDEL=3.3,GSIG=4.3')&&explorer.includes('GOs=.45+.55'));
+check('spherical view grows Kelvin-Helmholtz waves between the bands',explorer.includes('KHK')&&explorer.includes('khEnv')&&explorer.includes('KHB=180/7.3'));
 
 process.exitCode=failures?1:0;
 console.log(failures?failures+' failure(s)':'all checks passed');

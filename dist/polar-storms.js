@@ -154,16 +154,30 @@ export function initPolarStormsTab(){
  // --- Spherical streamline globe ---
  // Streak particles advected over a prescribed spherical wind field. Both
  // polar vortices reuse the dye view's counter-rotating shear kinematics and
- // take the regime wavenumber; the zonal bands and the passing oval storms
- // are illustrative. An appearance model, not a fluid solution.
+ // take the regime wavenumber; the zonal bands, the Kelvin-Helmholtz waves
+ // at the band edges and the passing oval storms are illustrative. An
+ // appearance model, not a fluid solution.
  const globe=$('storms-globe'),gctx=globe.getContext('2d');
- const GCX=256,GCY=256,GR=204,GNP=700,GTR=40;
- const GY0=13,GDEL=5.5,GSIG=11,GMAX=40,GSPEED=1.6;
+ const GCX=256,GCY=256,GR=204,GNP=800,GTR=44;
+ // Polar ring geometry matches the dye plate's proportions (SIG/DEL ~ .33/.25 of R0).
+ const GY0=13,GDEL=3.3,GSIG=4.3,GMAX=40,GSPEED=1.6;
  const D2R=Math.PI/180;
+ // Kelvin-Helmholtz billows along the band shear zones (illustrative).
+ const KHW=4,KHK=12,KHB=180/7.3,KHA=.009;
  let yaw=.6,pitch=.42,globeDrag=false,gLast=null,gFrame=0,phaseN=0,phaseS=0,nextStorm=5;
  const gparts=Array.from({length:GNP},()=>({x:0,y:0,z:0,trail:[]}));
  const gstorms=[];
- function seedG(p){const z=2*Math.random()-1,a=Math.random()*TAU,r=Math.sqrt(1-z*z);p.x=r*Math.cos(a);p.y=z;p.z=r*Math.sin(a);p.trail.length=0;}
+ function seedG(p){
+  if(Math.random()<.35){ // concentrate tracers near the polar jet rings, like the dye plate
+   const pole=Math.random()<.5?1:-1,gDeg=Math.max(2.5,GY0+GSIG*gauss());
+   const la=(pole*(90-gDeg))*D2R,lo=Math.random()*TAU,cl=Math.cos(la);
+   p.x=cl*Math.cos(lo);p.y=Math.sin(la);p.z=cl*Math.sin(lo);
+  }else{
+   const z=2*Math.random()-1,a=Math.random()*TAU,r=Math.sqrt(1-z*z);
+   p.x=r*Math.cos(a);p.y=z;p.z=r*Math.sin(a);
+  }
+  p.trail.length=0;
+ }
  for(const p of gparts)seedG(p);
  function bandSpeed(latDeg){return (6+8*Math.min(1,Ro))*Math.sin(7.3*latDeg*D2R)*Math.pow(Math.max(.02,Math.cos(latDeg*D2R)),.55);}
  function spawnStorm(){
@@ -172,13 +186,16 @@ export function initPolarStormsTab(){
  function stormCenter(s){const la=s.lat*D2R,lo=s.lon*D2R;s.cx=Math.cos(la)*Math.cos(lo);s.cy=Math.sin(la);s.cz=Math.cos(la)*Math.sin(lo);}
  function stepGlobe(dt){
   const m=info.regime==='polygon'?info.m:3;
-  const GOs=.25+.45*Math.min(1,Ro),GOp=.12*GOs;
+  const GOs=.45+.55*Math.min(1,Ro),GOp=.12*GOs; // same spin rate as the dye plate
   phaseN+=GOp*dt;phaseS-=GOp*dt;gFrame++;
   if(!globeDrag)yaw+=.025*dt;
   const GA0=.55*GOs*GY0*GSIG*GSIG/(4*GDEL);
   let gA=0;
   if(info.regime==='chaotic')gA=GA0*(.7+.45*Math.sin(1.7*time)+.25*Math.sin(3.1*time+1));
   else if(info.regime==='polygon'){const excess=Ro/(27*Math.pow(E,.72));gA=GA0*Math.min(1.5,Math.max(.35,.4+.3*(excess-1)));}
+  const khAmp=KHA*(.5+.5*Math.min(1,Ro));
+  const khEnv=[],khPh=[];
+  for(let b=-2;b<=2;b++){khEnv.push(Math.pow(Math.max(0,Math.sin(.21*time+b*2.13)),1.6));khPh.push((b%2?1:-1)*.06*time+b*1.7);}
   nextStorm-=dt;
   if(nextStorm<=0&&gstorms.length<2){spawnStorm();nextStorm=9+Math.random()*14;}
   for(let i=gstorms.length-1;i>=0;i--){const s=gstorms[i];s.age+=dt;if(s.age>=s.life){gstorms.splice(i,1);continue;}s.lon=(s.lon+bandSpeed(s.lat)*.8*dt+360)%360;stormCenter(s);}
@@ -190,10 +207,19 @@ export function initPolarStormsTab(){
    const eNx=-sLat*Math.cos(lon),eNy=cLat,eNz=-sLat*Math.sin(lon);
    const ub=bandSpeed(latDeg);
    let vx=ub*eEx,vy=0,vz=ub*eEz;
+   let uKh=0,vKh=0;
+   for(let b=-2;b<=2;b++){
+    const d=latDeg-b*KHB;
+    if(d<-3*KHW||d>3*KHW||khEnv[b+2]<.01)continue;
+    const eb=Math.exp(-(d/KHW)*(d/KHW)),aw=KHK*(lon-khPh[b+2]),amp=khAmp*khEnv[b+2];
+    uKh+=amp*(2*d/(KHW*KHW*D2R))*eb*Math.cos(aw)/D2R;
+    vKh+=-amp*KHK*eb*Math.sin(aw)/Math.max(cLat,.35)/D2R;
+   }
+   vx+=uKh*eEx+vKh*eNx;vy+=vKh*eNy;vz+=uKh*eEz+vKh*eNz;
    for(let pole=0;pole<2;pole++){
     const gDeg=pole?90+latDeg:90-latDeg;
     if(gDeg>=GMAX)continue;
-    const r=Math.max(gDeg,4),x2=(r-GY0)/GSIG,g=Math.exp(-x2*x2);
+    const r=Math.max(gDeg,1.3),x2=(r-GY0)/GSIG,g=Math.exp(-x2*x2);
     const a=m*((pole?-1:1)*lon-(pole?phaseS:phaseN));
     const vr=-gA*g*m*Math.sin(a)/r;
     const vt=r*GOs*(-Math.tanh((r-GY0)/GDEL))+gA*g*2*(r-GY0)/(GSIG*GSIG)*Math.cos(a);
