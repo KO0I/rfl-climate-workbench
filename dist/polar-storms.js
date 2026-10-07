@@ -15,6 +15,19 @@ export function initPolarStormsTab(){
  const reduced=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
  const clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
 
+ // Theme colors for canvas work (strokes/fills need explicit rgb channels),
+ // parsed once here so every view follows --theme-violet and friends.
+ const themeRGB=(name,fb)=>{
+  const v=(globalThis.getComputedStyle?getComputedStyle(document.documentElement).getPropertyValue(name):'').trim();
+  const m=/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v);
+  if(!m)return fb;
+  const h=m[1].length===3?m[1].replace(/./g,c=>c+c):m[1];
+  return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+ };
+ const [VR,VG,VB]=themeRGB('--theme-violet',[168,96,255]);
+ const violet=a=>'rgba('+VR+','+VG+','+VB+','+a+')';
+ const panelRGB=themeRGB('--theme-panel',[9,8,15]),bgRGB=themeRGB('--theme-background',[15,14,21]);
+
  // Regime state in log10 coordinates. The default is the Saturn north-jet
  // point (Ro ≈ 0.024, E ≈ 1.9e-5), which the relation maps to the hexagon.
  const LX0=-2.6,LX1=0,LY0=-6,LY1=-3;
@@ -108,7 +121,7 @@ export function initPolarStormsTab(){
   return stops[i].map((v,k)=>Math.round(mix(v,stops[i+1][k],f)));
  }
  function streakColor(p){
-  if(dyeColor==='theme')return [168,96,255];
+  if(dyeColor==='theme')return [VR,VG,VB];
   const dx=p.x-CX,dy=p.y-CY,r=Math.hypot(dx,dy);
   if(dyeColor==='heatmap')return heatColor(p.speed/70);
   const hue=dyeColor==='radius'?clamp((r-35)/105,0,1)*280:(Math.atan2(dy,dx)/TAU+1)%1*360;
@@ -118,12 +131,12 @@ export function initPolarStormsTab(){
  function drawDye(){
   pctx.fillStyle='rgb(9,16,29)';pctx.fillRect(0,0,288,288);
   pctx.lineWidth=1;
-  pctx.beginPath();pctx.arc(CX,CY,140,0,TAU);pctx.strokeStyle='rgba(148,180,220,.14)';pctx.stroke();
-  pctx.beginPath();pctx.arc(CX,CY,R0,0,TAU);pctx.strokeStyle='rgba(148,180,220,.08)';pctx.stroke();
+  pctx.beginPath();pctx.arc(CX,CY,140,0,TAU);pctx.strokeStyle=violet(.14);pctx.stroke();
+  pctx.beginPath();pctx.arc(CX,CY,R0,0,TAU);pctx.strokeStyle=violet(.08);pctx.stroke();
   if(info.regime==='polygon'){
    pctx.beginPath();
    for(let k=0;k<=info.m;k++){const a=phase+k*TAU/info.m,px=CX+R0*Math.cos(a),py=CY+R0*Math.sin(a);k?pctx.lineTo(px,py):pctx.moveTo(px,py);}
-   pctx.setLineDash([3,5]);pctx.strokeStyle='rgba(200,220,255,.16)';pctx.stroke();pctx.setLineDash([]);
+   pctx.setLineDash([3,5]);pctx.strokeStyle=violet(.2);pctx.stroke();pctx.setLineDash([]);
   }
   pctx.lineWidth=1.3;pctx.lineCap='round';pctx.lineJoin='round';
   for(const p of parts){
@@ -135,6 +148,128 @@ export function initPolarStormsTab(){
    pctx.beginPath();pctx.moveTo(t[0],t[1]);for(let i=1;i<mid;i++)pctx.lineTo(t[2*i],t[2*i+1]);pctx.stroke();
    pctx.strokeStyle='rgba('+rgb+',.52)';
    pctx.beginPath();pctx.moveTo(t[2*mid-2],t[2*mid-1]);for(let i=mid;i<n;i++)pctx.lineTo(t[2*i],t[2*i+1]);pctx.stroke();
+  }
+ }
+
+ // --- Spherical streamline globe ---
+ // Streak particles advected over a prescribed spherical wind field. Both
+ // polar vortices reuse the dye view's counter-rotating shear kinematics and
+ // take the regime wavenumber; the zonal bands, the Kelvin-Helmholtz waves
+ // at the band edges and the passing oval storms are illustrative. An
+ // appearance model, not a fluid solution.
+ const globe=$('storms-globe'),gctx=globe.getContext('2d');
+ const GCX=256,GCY=256,GR=204,GNP=800,GTR=44;
+ // Polar ring geometry matches the dye plate's proportions (SIG/DEL ~ .33/.25 of R0).
+ const GY0=13,GDEL=3.3,GSIG=4.3,GMAX=40,GSPEED=1.6;
+ const D2R=Math.PI/180;
+ // Kelvin-Helmholtz billows along the band shear zones (illustrative).
+ const KHW=4,KHK=12,KHB=180/7.3,KHA=.009;
+ let yaw=.6,pitch=.42,globeDrag=false,gLast=null,gFrame=0,phaseN=0,phaseS=0,nextStorm=5;
+ const gparts=Array.from({length:GNP},()=>({x:0,y:0,z:0,trail:[]}));
+ const gstorms=[];
+ function seedG(p){
+  if(Math.random()<.35){ // concentrate tracers near the polar jet rings, like the dye plate
+   const pole=Math.random()<.5?1:-1,gDeg=Math.max(2.5,GY0+GSIG*gauss());
+   const la=(pole*(90-gDeg))*D2R,lo=Math.random()*TAU,cl=Math.cos(la);
+   p.x=cl*Math.cos(lo);p.y=Math.sin(la);p.z=cl*Math.sin(lo);
+  }else{
+   const z=2*Math.random()-1,a=Math.random()*TAU,r=Math.sqrt(1-z*z);
+   p.x=r*Math.cos(a);p.y=z;p.z=r*Math.sin(a);
+  }
+  p.trail.length=0;
+ }
+ for(const p of gparts)seedG(p);
+ function bandSpeed(latDeg){return (6+8*Math.min(1,Ro))*Math.sin(7.3*latDeg*D2R)*Math.pow(Math.max(.02,Math.cos(latDeg*D2R)),.55);}
+ function spawnStorm(){
+  gstorms.push({lat:(15+Math.random()*25)*(Math.random()<.5?1:-1),lon:Math.random()*360,sigma:6+Math.random()*4,gamma:(Math.random()<.5?-1:1)*(14+Math.random()*10),age:0,life:14+Math.random()*16,cx:0,cy:0,cz:0});
+ }
+ function stormCenter(s){const la=s.lat*D2R,lo=s.lon*D2R;s.cx=Math.cos(la)*Math.cos(lo);s.cy=Math.sin(la);s.cz=Math.cos(la)*Math.sin(lo);}
+ function stepGlobe(dt){
+  const m=info.regime==='polygon'?info.m:3;
+  const GOs=.45+.55*Math.min(1,Ro),GOp=.12*GOs; // same spin rate as the dye plate
+  phaseN+=GOp*dt;phaseS-=GOp*dt;gFrame++;
+  if(!globeDrag)yaw+=.025*dt;
+  const GA0=.55*GOs*GY0*GSIG*GSIG/(4*GDEL);
+  let gA=0;
+  if(info.regime==='chaotic')gA=GA0*(.7+.45*Math.sin(1.7*time)+.25*Math.sin(3.1*time+1));
+  else if(info.regime==='polygon'){const excess=Ro/(27*Math.pow(E,.72));gA=GA0*Math.min(1.5,Math.max(.35,.4+.3*(excess-1)));}
+  const khAmp=KHA*(.5+.5*Math.min(1,Ro));
+  const khEnv=[],khPh=[];
+  for(let b=-2;b<=2;b++){khEnv.push(Math.pow(Math.max(0,Math.sin(.21*time+b*2.13)),1.6));khPh.push((b%2?1:-1)*.06*time+b*1.7);}
+  nextStorm-=dt;
+  if(nextStorm<=0&&gstorms.length<2){spawnStorm();nextStorm=9+Math.random()*14;}
+  for(let i=gstorms.length-1;i>=0;i--){const s=gstorms[i];s.age+=dt;if(s.age>=s.life){gstorms.splice(i,1);continue;}s.lon=(s.lon+bandSpeed(s.lat)*.8*dt+360)%360;stormCenter(s);}
+  const record=gFrame%2===0;
+  for(const p of gparts){
+   const lat=Math.asin(clamp(p.y,-1,1)),latDeg=lat/D2R,lon=Math.atan2(p.z,p.x);
+   const sLat=Math.sin(lat),cLat=Math.cos(lat);
+   const eEx=-Math.sin(lon),eEz=Math.cos(lon);
+   const eNx=-sLat*Math.cos(lon),eNy=cLat,eNz=-sLat*Math.sin(lon);
+   const ub=bandSpeed(latDeg);
+   let vx=ub*eEx,vy=0,vz=ub*eEz;
+   let uKh=0,vKh=0;
+   for(let b=-2;b<=2;b++){
+    const d=latDeg-b*KHB;
+    if(d<-3*KHW||d>3*KHW||khEnv[b+2]<.01)continue;
+    const eb=Math.exp(-(d/KHW)*(d/KHW)),aw=KHK*(lon-khPh[b+2]),amp=khAmp*khEnv[b+2];
+    uKh+=amp*(2*d/(KHW*KHW*D2R))*eb*Math.cos(aw)/D2R;
+    vKh+=-amp*KHK*eb*Math.sin(aw)/Math.max(cLat,.35)/D2R;
+   }
+   vx+=uKh*eEx+vKh*eNx;vy+=vKh*eNy;vz+=uKh*eEz+vKh*eNz;
+   for(let pole=0;pole<2;pole++){
+    const gDeg=pole?90+latDeg:90-latDeg;
+    if(gDeg>=GMAX)continue;
+    const r=Math.max(gDeg,1.3),x2=(r-GY0)/GSIG,g=Math.exp(-x2*x2);
+    const a=m*((pole?-1:1)*lon-(pole?phaseS:phaseN));
+    const vr=-gA*g*m*Math.sin(a)/r;
+    const vt=r*GOs*(-Math.tanh((r-GY0)/GDEL))+gA*g*2*(r-GY0)/(GSIG*GSIG)*Math.cos(a);
+    const os=pole?1:-1,as=pole?-1:1; // south: outward is northward, spin mirrored
+    vx+=vr*os*eNx+vt*as*eEx;vy+=vr*os*eNy;vz+=vr*os*eNz+vt*as*eEz;
+   }
+   for(const s of gstorms){
+    const dot=clamp(p.x*s.cx+p.y*s.cy+p.z*s.cz,-1,1);
+    const d=Math.acos(dot)/D2R;
+    if(d>=4*s.sigma)continue;
+    let tx=s.cy*p.z-s.cz*p.y,ty=s.cz*p.x-s.cx*p.z,tz=s.cx*p.y-s.cy*p.x;
+    const tl=Math.hypot(tx,ty,tz)||1;tx/=tl;ty/=tl;tz/=tl;
+    const fade=Math.sin(Math.PI*s.age/s.life);
+    const w=s.gamma*(d/s.sigma)*Math.exp(-d*d/(2*s.sigma*s.sigma))*fade;
+    vx+=w*tx;vy+=w*ty;vz+=w*tz;
+   }
+   const k=dt*GSPEED*D2R;
+   const nx=p.x+vx*k,ny=p.y+vy*k,nz=p.z+vz*k,nl=Math.hypot(nx,ny,nz)||1;
+   p.x=nx/nl;p.y=ny/nl;p.z=nz/nl;
+   if(record){p.trail.push(p.x,p.y,p.z);if(p.trail.length>GTR*3)p.trail.splice(0,3);}
+   if(Math.random()<.0015)seedG(p);
+  }
+ }
+ function drawGlobe(){
+  gctx.clearRect(0,0,512,512);
+  const grad=gctx.createRadialGradient(GCX-GR*.38,GCY-GR*.42,GR*.15,GCX,GCY,GR*1.02);
+  grad.addColorStop(0,'rgb('+panelRGB.map((c,i)=>Math.round(mix(c,[VR,VG,VB][i],.14))).join(',')+')');
+  grad.addColorStop(1,'rgb('+bgRGB.join(',')+')');
+  gctx.beginPath();gctx.arc(GCX,GCY,GR,0,TAU);gctx.fillStyle=grad;gctx.fill();
+  gctx.lineWidth=1;gctx.strokeStyle=violet(.22);gctx.stroke();
+  const cy1=Math.cos(yaw),sy1=Math.sin(yaw),cp1=Math.cos(pitch),sp1=Math.sin(pitch);
+  gctx.lineWidth=1.5;gctx.lineCap='round';gctx.lineJoin='round';
+  for(const p of gparts){
+   const t=p.trail,n=t.length/3;
+   if(n<2)continue;
+   const mid=Math.max(1,Math.floor(n/2));
+   for(let pass=0;pass<2;pass++){
+    const i0=pass?mid-1:0,i1=pass?n:mid,base=pass?.6:.12;
+    let started=false,zAcc=0,zCnt=0;
+    gctx.beginPath();
+    for(let i=i0;i<i1;i++){
+     const x=t[3*i],y=t[3*i+1],z=t[3*i+2];
+     const x1=x*cy1+z*sy1,z1=z*cy1-x*sy1;
+     const y1=y*cp1-z1*sp1,z2=y*sp1+z1*cp1;
+     if(z2<=.02){started=false;continue;}
+     if(started)gctx.lineTo(GCX+GR*x1,GCY-GR*y1);else gctx.moveTo(GCX+GR*x1,GCY-GR*y1);
+     started=true;zAcc+=z2;zCnt++;
+    }
+    if(zCnt>1){gctx.strokeStyle=violet(base*(.35+.65*(zAcc/zCnt)));gctx.stroke();}
+   }
   }
  }
 
@@ -173,8 +308,9 @@ export function initPolarStormsTab(){
    time+=dt;
    if(view==='dye'){stepDye(dt);drawDye();drew=true;}
    else if(now-lastPaint>110){paintBands();lastPaint=now;drew=true;}
+   stepGlobe(dt);drawGlobe();drew=true;
   }
-  if(dirty&&!drew){if(view==='dye')drawDye();else{paintBands();lastPaint=now;}}
+  if(dirty&&!drew){if(view==='dye')drawDye();else{paintBands();lastPaint=now;}drawGlobe();}
   dirty=false;
   if(!paused)schedule();
  }
@@ -217,6 +353,22 @@ export function initPolarStormsTab(){
   dirty=true;schedule();
  };
  $('storms-pause').onclick=()=>{paused=!paused;status();lastTime=0;schedule();};
+ $('storms-globe-north').onclick=()=>{pitch=1.15;if(paused)drawGlobe();};
+ $('storms-globe-equator').onclick=()=>{pitch=.12;if(paused)drawGlobe();};
+ $('storms-globe-south').onclick=()=>{pitch=-1.15;if(paused)drawGlobe();};
+ globe.addEventListener('pointerdown',e=>{globeDrag=true;gLast=[e.clientX,e.clientY];globe.setPointerCapture(e.pointerId);e.preventDefault();});
+ globe.addEventListener('pointermove',e=>{
+  if(!globeDrag||!gLast)return;
+  yaw+=(e.clientX-gLast[0])*.006;pitch=clamp(pitch+(e.clientY-gLast[1])*.006,-1.35,1.35);gLast=[e.clientX,e.clientY];
+  if(paused)drawGlobe();
+ });
+ for(const t of ['pointerup','pointercancel','lostpointercapture'])globe.addEventListener(t,()=>{globeDrag=false;gLast=null;});
+ globe.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft')yaw-=.12;else if(e.key==='ArrowRight')yaw+=.12;
+  else if(e.key==='ArrowUp')pitch=clamp(pitch+.08,-1.35,1.35);else if(e.key==='ArrowDown')pitch=clamp(pitch-.08,-1.35,1.35);
+  else return;
+  e.preventDefault();if(paused)drawGlobe();
+ });
  const num=id=>Number($(id).value);
  function applyWorld(){
   const r=regimeFromWorld({rotationHours:num('storms-rotation'),planetRadius:num('storms-radius')*1000,jetSpeed:num('storms-jet'),jetRadiusDeg:num('storms-jet-radius'),eddyViscosity:Math.pow(10,num('storms-eddy'))});
