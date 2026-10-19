@@ -209,5 +209,5 @@ export function generateBiomeLayer({terrain,climate=null,climateTerrain=terrain,
    ids[i]=index;counts[index]++;
   }
  }
- return {ids,counts,provisional:!hasClimate,moistureSource:hasClimate?'Cloud-cover proxy':'Latitude and geographic noise'};
+ return {ids,counts,provisional:true,usesSimulatedTemperature:hasClimate,moistureSource:hasClimate?'Cloud-cover proxy':'Latitude and geographic noise'};
 }
