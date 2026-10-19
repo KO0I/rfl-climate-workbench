@@ -108,3 +108,12 @@ main>.workspace-nav{grid-column:1/-1;margin:0;padding:12px 26px;background:var(-
 #storms-globe{width:100%;max-width:520px;aspect-ratio:1;border-radius:8px;touch-action:none;cursor:grab;background:var(--theme-background);border:1px solid var(--theme-border)}
 #storms-globe:focus-visible{outline:2px solid var(--theme-violet);outline-offset:2px}
 .storms-globe-views{justify-content:center;margin-top:12px}
+
+
+/* Independent terrestrial biome swatches; RFL's editable 5x4 sprite is unchanged. */
+.biome-key{margin:0 0 22px;padding:12px 14px 14px;border:1px solid var(--theme-border);border-radius:6px;background:var(--theme-panel)}
+.biome-key summary{font-size:14px;font-weight:600;color:var(--theme-text)}
+.biome-key-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 14px;margin-top:12px}
+.biome-key-grid .biome-item{display:flex;align-items:center;gap:8px;line-height:1.4;font-size:12px;color:var(--theme-soft)}
+.biome-key-grid .biome-swatch{display:inline-block;flex:0 0 15px;width:15px;height:15px;border-radius:2px;border:1px solid var(--theme-control-border)}
+.biome-key .control-note{margin:12px 0 0;font-size:12px}

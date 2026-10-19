@@ -21,6 +21,28 @@ The current engines do not require SharedArrayBuffer, COOP, or COEP headers.
 The worker loader's `credentials: 'same-origin'` also works on public static
 hosting; it does not require a ChatGPT session there.
 
+## Terrestrial biome layer (experimental)
+
+Choose **Terrestrial biomes · 18 regions** in the global "Wrap / map layer"
+selector to view terrestrial vegetation classes from the supplied legend.
+Available for cool, temperate and warm rocky worlds on the map and globe.
+
+The initial map uses latitude, elevation and seeded geographic variation.
+During ExoPlaSim runs it also uses accumulated air temperatures and cloud cover.
+**Cloud cover is not rainfall.** Moisture is still an illustrative proxy, so
+all biome distributions remain provisional. Quantitative ecology requires
+long-term precipitation, evapotranspiration, soil moisture, seasons and
+an equilibrated climate. Biomes are display metadata, not an ExoPlaSim input,
+and do not change terrain elevation, albedo or the 5 x 4 palette sprite.
+
+ExoPlaSim JSON downloads include a `biome_layer` with 18 IDs and colors,
+latitude-major classification cells and water code 255. The older
+Terrain Solver `solver.biomes` region IDs are distinct from these
+ecological categories. Neither grid resolves individual trees or grasslands;
+surface streaming should use these codes as coarse biome guidance.
+
+Regression checks: `node scripts/test-biomes.mjs`.
+
 ## Contents
 
 | Path | Purpose |

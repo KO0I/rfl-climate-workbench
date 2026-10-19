@@ -5,6 +5,7 @@ import {initSaturnTab} from './saturn-tab.js';
 import {initPolarStormsTab} from './polar-storms.js';
 import {generateSolver,solverDefaults,solverPreset,solverKnobs} from './terrain-solver.js';
 import {randomSurface} from './planet-tool/random-surface.js';
+import {BIOMES,WATER_BIOME,generateBiomeLayer,accumulateBiomeClimate} from './biomes.js';
 import {Playback} from './playback.js';
 import {Globe} from './planet-tool/globe.js';
 import {createCloudLayer,paintCloudMap,CLOUD_RADIUS} from './planet-tool/clouds.js';
@@ -18,7 +19,7 @@ const controls=['flux','co2','rotation','days'];
 const surfaceControls=['flux','rotation','pressure','albedo'];
 const support=()=>climateSupport(selection.planet,selection.atmosphere);
 const palettes={thermal:['#272454','#2878b6','#60ced0','#f1da89','#e87942','#a82841'],cloud:['#0b2940','#456883','#b8d7df','#ffffff'],wind:['#132b46','#296f92','#8fd8cc','#f2d37d','#fa774b'],pressure:['#39275e','#665baa','#5395b0','#78c4ba','#d8edac']};
-const fields={surface:{title:'Planet tool colors',mean:'Land coverage',lo:0,hi:100,unit:'%',palette:'thermal',note:'RFL terrain and palette at the selected display resolution. Climate uses the original 64 × 32 terrain samples. Colors and cloud detail are visual only.'},elevation:{title:'Terrain elevation',mean:'Global mean elevation',lo:0,hi:3000,unit:'m',palette:'pressure',note:'Elevation above the liquid surface. ExoPlaSim uses the original 64 × 32 samples and spectrally smooths them.'},surfaceTemperature:{title:'Surface temperature',mean:'Mean surface temperature',lo:220,hi:320,unit:'K',palette:'thermal',note:'Temperature of the ground, liquid or ice surface from ExoPlaSim.'},temperature:{title:'Surface air temperature',mean:'Global mean temperature',lo:220,hi:320,unit:'K',palette:'thermal',note:'Diagnosed surface air temperature, on the model’s Gaussian grid.'},cloud:{title:'Total cloud cover',mean:'Global mean cloud cover',lo:0,hi:100,unit:'%',palette:'cloud',note:'Column cloud fraction from ExoPlaSim’s cloud parameterization. It does not resolve individual clouds.'},wind:{title:'Lowest-level wind',mean:'Global mean wind speed',lo:0,hi:60,unit:'m/s',palette:'wind',note:'Wind speed at the lowest atmospheric model level (sigma ≈ 0.95).'},pressure:{title:'Surface pressure',mean:'Global mean pressure',lo:500,hi:1050,unit:'hPa',palette:'pressure',note:'Actual surface pressure, including the effect of terrain elevation; not sea-level pressure.'}};
+const fields={surface:{title:'Planet tool colors',mean:'Land coverage',lo:0,hi:100,unit:'%',palette:'thermal',note:'RFL terrain and palette at the selected display resolution. Climate uses the original 64 × 32 terrain samples. Colors and cloud detail are visual only.'},biome:{title:'Terrestrial biomes',mean:'Land coverage',lo:0,hi:100,unit:'%',palette:'pressure',note:'Provisional biome distribution, inferred from temperature, elevation and moisture proxies.'},elevation:{title:'Terrain elevation',mean:'Global mean elevation',lo:0,hi:3000,unit:'m',palette:'pressure',note:'Elevation above the liquid surface. ExoPlaSim uses the original 64 × 32 samples and spectrally smooths them.'},surfaceTemperature:{title:'Surface temperature',mean:'Mean surface temperature',lo:220,hi:320,unit:'K',palette:'thermal',note:'Temperature of the ground, liquid or ice surface from ExoPlaSim.'},temperature:{title:'Surface air temperature',mean:'Global mean temperature',lo:220,hi:320,unit:'K',palette:'thermal',note:'Diagnosed surface air temperature, on the model’s Gaussian grid.'},cloud:{title:'Total cloud cover',mean:'Global mean cloud cover',lo:0,hi:100,unit:'%',palette:'cloud',note:'Column cloud fraction from ExoPlaSim’s cloud parameterization. It does not resolve individual clouds.'},wind:{title:'Lowest-level wind',mean:'Global mean wind speed',lo:0,hi:60,unit:'m/s',palette:'wind',note:'Wind speed at the lowest atmospheric model level (sigma ≈ 0.95).'},pressure:{title:'Surface pressure',mean:'Global mean pressure',lo:500,hi:1050,unit:'hPa',palette:'pressure',note:'Actual surface pressure, including the effect of terrain elevation; not sea-level pressure.'}};
 let worker=null, state='idle', latest=null, config=null, runWorld=null;
 let loader=null,workerURL=null,startupTimer=null;
 let selection={planet:'temperate',atmosphere:'nitrogen'};
@@ -42,10 +43,10 @@ function rebuildTerrain(){
 let selectedPalettePixel=0;
 let surfacePalette=[...ExoTerrain.palette],cloudMode='original',activeTab='climate',replayTimer=null,replaySpeed=1;
 const playback=new Playback(),globe=new Globe($('planet'));
-let lastTexture=null,lastCloudLayer=null,cloudCache=null;
+let lastTexture=null,lastCloudLayer=null,cloudCache=null,biomeNormals=null;
 const climateTexture=document.createElement('canvas');climateTexture.width=1024;climateTexture.height=512;
-globe.onchange=()=>{if(lastTexture)globe.draw(lastTexture,$('field').value!=='surface',lastCloudLayer,surfacePalette);};
-const scientific=key=>!['surface','elevation'].includes(key);
+globe.onchange=()=>{if(lastTexture)globe.draw(lastTexture,!['surface','biome'].includes($('field').value),lastCloudLayer,surfacePalette);};
+const scientific=key=>!['surface','elevation','biome'].includes(key);
 const climateBusy=()=>['loading','running','paused'].includes(state);
 const gasTab=initMagicTab({beforeRun:()=>{if(state==='loading')reset();else if(state==='running')togglePause();}});
 const saturnTab=initSaturnTab();
@@ -112,7 +113,7 @@ async function startRun(c=getConfig()){
    if(d.type==='status')$('status').textContent=d.message;
    if(d.type==='ready'){clearTimeout(startupTimer);startupTimer=null;setState('running');$('status').textContent='Running locally on this device';}
    if(d.type==='frame'){
-    const first=!playback.tail;playback.push(d);latest=playback.current;if(first&&activeTab==='climate'&&$('field').value==='surface')$('field').value='temperature';$('empty').style.display='none';$('download').disabled=false;$('elapsed').textContent=(d.steps*d.dt/86400).toFixed(2)+' days';$('progress').value=d.steps/d.target;
+    const first=!playback.tail;playback.push(d);biomeNormals=accumulateBiomeClimate(biomeNormals,d);latest=playback.current;if(first&&activeTab==='climate'&&$('field').value==='surface')$('field').value='temperature';$('empty').style.display='none';$('download').disabled=false;$('elapsed').textContent=(d.steps*d.dt/86400).toFixed(2)+' days';$('progress').value=d.steps/d.target;
     const speed=d.runningMs>0?(d.steps*d.dt/86400)/(d.runningMs/60000):0;$('speed').textContent=speed.toFixed(1)+' days/min';syncLayers();syncPlayback();render();
    }
    if(d.type==='paused'){setState('paused');$('status').textContent='Paused · atmosphere held in memory';}
@@ -131,7 +132,7 @@ async function startRun(c=getConfig()){
 $('config').onsubmit=async e=>{e.preventDefault();try{await startRun();}catch(e){$('status').textContent=errorMessage(e);}};
 function togglePause(){if(state==='paused')gasTab.pauseForClimate();if(state==='running'||state==='paused')worker?.postMessage({type:state==='running'?'pause':'resume'});}
 $('pause').onclick=togglePause;
-function reset(){stopWorker();clearReplay();playback.reset();latest=null;config=null;runWorld=null;runTerrain=null;lastTexture=null;lastCloudLayer=null;cloudCache=null;setState('idle');$('status').textContent=support().supported?'Ready to start':'Appearance preview ready';$('progress').value=0;$('empty').style.display='flex';$('download').disabled=true;$('elapsed').textContent=$('mean').textContent=$('speed').textContent='—';for(const id of ['map','planet']){const canvas=$(id);canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);}addLog('Waiting for a run.');}
+function reset(){stopWorker();clearReplay();playback.reset();latest=null;config=null;runWorld=null;runTerrain=null;lastTexture=null;lastCloudLayer=null;cloudCache=null;biomeNormals=null;setState('idle');$('status').textContent=support().supported?'Ready to start':'Appearance preview ready';$('progress').value=0;$('empty').style.display='flex';$('download').disabled=true;$('elapsed').textContent=$('mean').textContent=$('speed').textContent='—';for(const id of ['map','planet']){const canvas=$(id);canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);}addLog('Waiting for a run.');}
 $('reset').onclick=()=>{reset();render();};
 function renderWorld(){
  const w=worlds[selection.planet],a=atmospheres[selection.atmosphere],s=support(),supported=s.supported,approx=s.mode==='surface-estimate';
@@ -191,7 +192,7 @@ renderWorld();
 function colors(name){return palettes[name].map(h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);}
 function color(t,p){const n=Math.max(0,Math.min(1,t))*(p.length-1),i=Math.min(p.length-2,Math.floor(n)),q=n-i;return `rgb(${p[i].map((a,k)=>Math.round(a+(p[i+1][k]-a)*q)).join(',')})`;}
 function valueAt(i,key,surface=terrain){
- if(key==='surface')return surface.land[i]*100;
+ if(key==='surface'||key==='biome')return surface.land[i]*100;
  if(key==='elevation')return surface.elevation[i];
  const a=latest.fields,n=latest.grid.cells,approx=latest.model==='surface-estimate';
  if(key==='temperature')return a[approx?6*n+i:i];
@@ -203,7 +204,7 @@ function valueAt(i,key,surface=terrain){
 function syncLayers(){
  const approx=support().mode==='surface-estimate',ready=Boolean(latest);
  for(const option of $('field').options){
-  option.disabled=scientific(option.value)&&(!ready||(approx&&!['temperature','pressure'].includes(option.value)));
+  option.disabled=(option.value==='biome'&&!['cold','temperate','warm'].includes(selection.planet))||(scientific(option.value)&&(!ready||(approx&&!['temperature','pressure'].includes(option.value))));
   if(option.value==='temperature')option.textContent=approx?'Estimated surface temperature · K':'Air temperature · K';
   if(option.value==='pressure')option.textContent=approx?'Surface pressure · bar':'Surface pressure · hPa';
  }
@@ -256,13 +257,14 @@ function render(){
   s.note=key==='temperature'?'Steady grey energy balance; no circulation or terrain feedback. The color scale fits this world.':selection.planet==='silicate'?'Illustrative local vapor-pressure proxy; no chemistry or atmospheric flow is solved.':'Uniform prescribed pressure; no weather or terrain pressure variations are modeled.';
   if(latest){const values=Array.from({length:grid.cells},(_,i)=>valueAt(i,key)),lo=Math.min(...values),hi=Math.max(...values);s.lo=key==='temperature'?Math.floor(lo/10)*10:0;s.hi=key==='temperature'?Math.max(s.lo+10,Math.ceil(hi/10)*10):hi||1;}
  }
- if(key==='elevation'){s.hi=appliedMaximum||Math.max(100,(displayTerrain.settings||terrainSettings).relief);s.note='Surface elevation above sea level. ExoPlaSim uses the original 64 × 32 terrain grid and spectrally smooths the elevation.';}
+ if(key==='biome')s.note=(biomeNormals?'Running-mean air temperature and cloud-cover proxy. ':'Latitude and elevation estimate temperature until a climate run. ')+'Moisture uses an illustrative geographic/cloud proxy, NOT model precipitation. Vegetation zones are provisional.';
+  if(key==='elevation'){s.hi=appliedMaximum||Math.max(100,(displayTerrain.settings||terrainSettings).relief);s.note='Surface elevation above sea level. ExoPlaSim uses the original 64 × 32 terrain grid and spectrally smooths the elevation.';}
  const fmt=v=>s.unit==='bar'?Number(v.toPrecision(3)).toString():v.toFixed(0);
- $('field-title').textContent=s.title;$('mean-label').textContent=s.mean;$('note').textContent=s.note;
+ $('field-title').textContent=s.title;$('mean-label').textContent=s.mean;$('note').textContent=s.note;$('biome-key').hidden=key!=='biome';
  for(const suffix of ['', '-planet']){
-  $('low'+suffix).textContent=key==='surface'?'Liquid':fmt(s.lo)+' '+s.unit;
-  $('high'+suffix).textContent=key==='surface'?'Land':fmt(s.hi)+' '+s.unit;
-  $('gradient'+suffix).style.background=`linear-gradient(90deg,${(key==='surface'?[surfacePalette[12],surfacePalette[7],surfacePalette[2]]:palettes[s.palette]).join(',')})`;
+  $('low'+suffix).textContent=key==='biome'?'Liquid':key==='surface'?'Liquid':fmt(s.lo)+' '+s.unit;
+  $('high'+suffix).textContent=key==='biome'?'18 land biomes':key==='surface'?'Land':fmt(s.hi)+' '+s.unit;
+  $('gradient'+suffix).style.background=`linear-gradient(90deg,${(key==='biome'?BIOMES.map(b=>b.color):key==='surface'?[surfacePalette[12],surfacePalette[7],surfacePalette[2]]:palettes[s.palette]).join(',')})`;
  }
  $('empty').style.display=isField&&!latest?'flex':'none';
  if(isField&&!latest)return;
@@ -271,6 +273,7 @@ function render(){
  // Non-field layers always use the RFL Gaussian terrain; extreme estimates use
  // their explicitly separate equal-area latitude grid only for physical fields.
  const surface=isField?terrain:displayTerrain,columns=surface.width,rows=surface.rows;
+ const biomeLayer=key==='biome'?generateBiomeLayer({terrain:surface,climate:biomeNormals,climateTerrain:terrain,planet:selection.planet,seed:terrainSettings.seed}):null;
  const sinLat=isField&&a?a.slice(7*n,7*n+grid.latitude):surface.sinLat;
  const lat=Array.from(sinLat,v=>Math.asin(Math.max(-1,Math.min(1,v)))*180/Math.PI);
  const edges=approx&&isField?Array.from({length:rows+1},(_,i)=>Math.asin(1-2*i/rows)*180/Math.PI):[90,...lat.slice(0,-1).map((v,i)=>(v+lat[i+1])/2),-90];
@@ -283,9 +286,11 @@ function render(){
    const ix=(x+columns/2)%columns,i=y*columns+ix,v=valueAt(i,key,surface),weight=isField&&a?a[7*n+grid.latitude+y]:surface.weights[y];sum+=v*weight;weights+=weight;
    if(key==='surface'){
     ctx.fillStyle=`rgb(${rgb[surface.indices[i]].join(',')})`;
-   }else ctx.fillStyle=color((v-s.lo)/(s.hi-s.lo),p);
+   }else if(key==='biome'){
+     const id=biomeLayer.ids[i];ctx.fillStyle=id===WATER_BIOME?`rgb(${rgb[surface.indices[i]].join(',')})`:BIOMES[id].color;
+    }else ctx.fillStyle=color((v-s.lo)/(s.hi-s.lo),p);
    ctx.fillRect(x*w/columns,top,w/columns+0.5,bottom-top+0.5);
-   if(key!=='surface'&&!(approx&&isField)){
+   if(key!=='surface'&&key!=='biome'&&!(approx&&isField)){
     const land=surface.land[i]>=.5,right=surface.land[y*columns+(ix+1)%columns]>=.5,below=y<rows-1?surface.land[i+columns]>=.5:land;
     ctx.strokeStyle='rgba(238,249,255,.38)';ctx.lineWidth=1;ctx.beginPath();if(land!==right){ctx.moveTo((x+1)*w/columns,top);ctx.lineTo((x+1)*w/columns,bottom);}if(land!==below){ctx.moveTo(x*w/columns,bottom);ctx.lineTo((x+1)*w/columns,bottom);}ctx.stroke();
    }
@@ -294,7 +299,7 @@ function render(){
  // Ground stays separate so the globe can draw clouds above its silhouette.
  lastTexture=ctx.getImageData(0,0,w,h);
  lastCloudLayer=key==='surface'?getCloudLayer():null;
- if(activeTab==='planet')globe.draw(lastTexture,key!=='surface',lastCloudLayer,surfacePalette);
+ if(activeTab==='planet')globe.draw(lastTexture,!['surface','biome'].includes(key),lastCloudLayer,surfacePalette);
  if(activeTab==='climate'){
  let mapTexture=lastTexture;
  if(lastCloudLayer){paintCloudMap(ctx,lastCloudLayer,rgb,w,h);mapTexture=ctx.getImageData(0,0,w,h);}
@@ -331,7 +336,8 @@ $('download').onclick=()=>{
  }
  const a=latest.fields,n=grid.cells,out={model:'ExoPlaSim',port:'experimental single-core T'+grid.truncation+'L10 WebAssembly',run_status:state,world_selection:runWorld,planet_tool:terrainExport(),atmosphere_palette:{type:runWorld.atmosphere,colors:palette.colors,labels:palette.labels||['Horizon','Upper','Edge'],positions_percent:palette.positions||[0,48,82],space:palette.space||'#080e18',source:palette.source||null,notice:'Illustrative only; not simulated sky colors.'},notice:'Cold-start experiment; not an equilibrated or validated climate prediction.',config,namelists:ExoConfig.namelists(config,grid.preset),elapsed_earth_days:latest.steps*latest.dt/86400,grid:{resolution:grid.preset,longitude:grid.longitude,latitude:grid.latitude,longitude_degrees:Array.from({length:grid.longitude},(_,i)=>i*360/grid.longitude),latitude_degrees:Array.from(a.slice(7*n,7*n+grid.latitude),v=>Math.asin(v)*180/Math.PI),gaussian_weights:Array.from(a.slice(7*n+grid.latitude,7*n+2*grid.latitude)),array_order:'latitude-major, longitude-fastest; north to south; longitude 0° eastward'},units:{surface_air_temperature:'K',cloud_cover:'fraction',eastward_wind:'m/s',northward_wind:'m/s',surface_pressure:'Pa',land_fraction:'fraction',surface_temperature:'K'},fields:{}};
  ['surface_air_temperature','cloud_cover','eastward_wind','northward_wind','surface_pressure','land_fraction','surface_temperature'].forEach((k,i)=>out.fields[k]=Array.from(a.slice(i*n,(i+1)*n)));
- saveJSON(out,'exoplasim-fields.json');
+ out.biome_layer=biomeExport();
+  saveJSON(out,'exoplasim-fields.json');
 };
 function saveJSON(out,name){const url=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 window.addEventListener('pagehide',()=>{stopWorker();clearReplay();cancelTerrain();});
@@ -342,6 +348,16 @@ if(document.modelContext?.registerTool){
  window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
 }
 
+function biomeExport(){
+ const planet=runWorld?.planet||selection.planet;
+ if(!['cold','temperate','warm'].includes(planet))return null;
+ const result=generateBiomeLayer({terrain,climate:biomeNormals,climateTerrain:terrain,planet,seed:terrainSettings.seed});
+ return {classification:'Illustrative climate-to-vegetation mapping (18 biomes)',source:'User-provided biome color legend',
+  data_kind:'uint8 biome IDs, 255 indicates liquid surface',water_id:WATER_BIOME,
+  grid:{longitude:terrain.width,latitude:terrain.rows,array_order:'latitude-major, longitude-fastest; north to south; longitude 0° eastward'},
+  legend:BIOMES,biome_ids:Array.from(result.ids),climate_basis:result.usesSimulatedTemperature?'Accumulated air-temperature and cloud-cover means':'Latitude/elevation proxy before climate output',
+  moisture_basis:result.moistureSource,notice:'Provisional visualization. Cloudiness is not rainfall; no precipitation, seasonality, soil water or vegetation simulation. Coarse climate cells must not be treated as surface-level ecological detail.'};
+}
 function terrainExport(){return {generator:terrain.generator||'quick',solver:terrain.generator==='solver'?{config:solverResult.config,statistics:solverResult.stats,ground_height_m:Array.from(terrain.height),water_surface_m:Array.from(terrain.water),biomes:Array.from(terrain.biomes)}:null,display_resolution:{preset:surfaceResolution,longitude:displayTerrain.width,latitude:displayTerrain.rows,cells:displayTerrain.land.length},source:terrain.generator==='solver'?'RFL C99 cubemap Terrain Solver, algorithm 2, WebAssembly':'RFL planet_tool.c terrestrial sampler',settings:runTerrain||terrainSettings,display_cloud_settings:{threshold:terrainSettings.cloudThreshold,frequency:terrainSettings.cloudFrequency,drift:terrainSettings.cloudDrift,shell_radius_ratio:CLOUD_RADIUS,detail:'Existing RFL 3D noise; each 2 × 2 High-res group preserves its climate cell mean coverage. Visual detail does not feed back into the solver.'},palette_rows:['land','coast','liquid','cloud'],palette:surfacePalette,cloud_source:cloudMode,grid:terrain.width+' longitude × '+terrain.rows+' Gaussian latitude; north to south; longitude 0° eastward',elevation_m:Array.from(terrain.elevation),land_mask:Array.from(terrain.land),terrain_affects_model:latest?.model!=='surface-estimate',colors_affect_albedo:false};}
 function clearReplay(){clearInterval(replayTimer);replayTimer=null;playback.playing=false;}
 function syncPlayback(){
@@ -528,6 +544,11 @@ $('palette-hex').oninput=e=>{if(/^#[0-9a-f]{6}$/i.test(e.target.value))editPalet
 $('palette-hex').onchange=e=>{if(!editPalettePixel(e.target.value)){$('palette-status').textContent='Use a six-digit hex color, such as #D2EEFF.';renderPaletteSprite();}};
 $('palette-edit').onclick=()=>{$('palette-title').scrollIntoView({block:'start'});$('palette-sprite').focus({preventScroll:true});};
 $('palette-png').onclick=()=>$('palette-sprite').toBlob(blob=>{if(blob)saveAsset(blob,'rfl-terrestrial-palette.png','image/png');else $('palette-status').textContent='The palette PNG could not be saved.';},'image/png');
+$('biome-key-grid').replaceChildren(...BIOMES.map(b=>{
+ const item=document.createElement('span'),swatch=document.createElement('i');
+ item.className='biome-item';swatch.className='biome-swatch';swatch.style.background=b.color;
+ swatch.setAttribute('aria-hidden','true');item.append(swatch,document.createTextNode(b.label));return item;
+}));
 renderPalette();syncPlayback();syncLayers();updateResolutionNote();
 
 $('projection').onchange=render;
