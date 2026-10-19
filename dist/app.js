@@ -45,7 +45,7 @@ let surfacePalette=[...ExoTerrain.palette],cloudMode='original',activeTab='clima
 const playback=new Playback(),globe=new Globe($('planet'));
 let lastTexture=null,lastCloudLayer=null,cloudCache=null,biomeNormals=null;
 const climateTexture=document.createElement('canvas');climateTexture.width=1024;climateTexture.height=512;
-globe.onchange=()=>{if(lastTexture)globe.draw(lastTexture,$('field').value!=='surface',lastCloudLayer,surfacePalette);};
+globe.onchange=()=>{if(lastTexture)globe.draw(lastTexture,!['surface','biome'].includes($('field').value),lastCloudLayer,surfacePalette);};
 const scientific=key=>!['surface','elevation','biome'].includes(key);
 const climateBusy=()=>['loading','running','paused'].includes(state);
 const gasTab=initMagicTab({beforeRun:()=>{if(state==='loading')reset();else if(state==='running')togglePause();}});
@@ -299,7 +299,7 @@ function render(){
  // Ground stays separate so the globe can draw clouds above its silhouette.
  lastTexture=ctx.getImageData(0,0,w,h);
  lastCloudLayer=key==='surface'?getCloudLayer():null;
- if(activeTab==='planet')globe.draw(lastTexture,key!=='surface',lastCloudLayer,surfacePalette);
+ if(activeTab==='planet')globe.draw(lastTexture,!['surface','biome'].includes(key),lastCloudLayer,surfacePalette);
  if(activeTab==='climate'){
  let mapTexture=lastTexture;
  if(lastCloudLayer){paintCloudMap(ctx,lastCloudLayer,rgb,w,h);mapTexture=ctx.getImageData(0,0,w,h);}
@@ -336,7 +336,8 @@ $('download').onclick=()=>{
  }
  const a=latest.fields,n=grid.cells,out={model:'ExoPlaSim',port:'experimental single-core T'+grid.truncation+'L10 WebAssembly',run_status:state,world_selection:runWorld,planet_tool:terrainExport(),atmosphere_palette:{type:runWorld.atmosphere,colors:palette.colors,labels:palette.labels||['Horizon','Upper','Edge'],positions_percent:palette.positions||[0,48,82],space:palette.space||'#080e18',source:palette.source||null,notice:'Illustrative only; not simulated sky colors.'},notice:'Cold-start experiment; not an equilibrated or validated climate prediction.',config,namelists:ExoConfig.namelists(config,grid.preset),elapsed_earth_days:latest.steps*latest.dt/86400,grid:{resolution:grid.preset,longitude:grid.longitude,latitude:grid.latitude,longitude_degrees:Array.from({length:grid.longitude},(_,i)=>i*360/grid.longitude),latitude_degrees:Array.from(a.slice(7*n,7*n+grid.latitude),v=>Math.asin(v)*180/Math.PI),gaussian_weights:Array.from(a.slice(7*n+grid.latitude,7*n+2*grid.latitude)),array_order:'latitude-major, longitude-fastest; north to south; longitude 0° eastward'},units:{surface_air_temperature:'K',cloud_cover:'fraction',eastward_wind:'m/s',northward_wind:'m/s',surface_pressure:'Pa',land_fraction:'fraction',surface_temperature:'K'},fields:{}};
  ['surface_air_temperature','cloud_cover','eastward_wind','northward_wind','surface_pressure','land_fraction','surface_temperature'].forEach((k,i)=>out.fields[k]=Array.from(a.slice(i*n,(i+1)*n)));
- saveJSON(out,'exoplasim-fields.json');
+ out.biome_layer=biomeExport();
+  saveJSON(out,'exoplasim-fields.json');
 };
 function saveJSON(out,name){const url=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 window.addEventListener('pagehide',()=>{stopWorker();clearReplay();cancelTerrain();});
@@ -347,6 +348,16 @@ if(document.modelContext?.registerTool){
  window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
 }
 
+function biomeExport(){
+ const planet=runWorld?.planet||selection.planet;
+ if(!['cold','temperate','warm'].includes(planet))return null;
+ const result=generateBiomeLayer({terrain,climate:biomeNormals,climateTerrain:terrain,planet,seed:terrainSettings.seed});
+ return {classification:'Illustrative climate-to-vegetation mapping (18 biomes)',source:'User-provided biome color legend',
+  data_kind:'uint8 biome IDs, 255 indicates liquid surface',water_id:WATER_BIOME,
+  grid:{longitude:terrain.width,latitude:terrain.rows,array_order:'latitude-major, longitude-fastest; north to south; longitude 0° eastward'},
+  legend:BIOMES,biome_ids:Array.from(result.ids),climate_basis:result.provisional?'Latitude/elevation proxy before climate output':'Accumulated air-temperature and cloud-cover means',
+  moisture_basis:result.moistureSource,notice:'Provisional visualization. Cloudiness is not rainfall; no precipitation, seasonality, soil water or vegetation simulation. Coarse climate cells must not be treated as surface-level ecological detail.'};
+}
 function terrainExport(){return {generator:terrain.generator||'quick',solver:terrain.generator==='solver'?{config:solverResult.config,statistics:solverResult.stats,ground_height_m:Array.from(terrain.height),water_surface_m:Array.from(terrain.water),biomes:Array.from(terrain.biomes)}:null,display_resolution:{preset:surfaceResolution,longitude:displayTerrain.width,latitude:displayTerrain.rows,cells:displayTerrain.land.length},source:terrain.generator==='solver'?'RFL C99 cubemap Terrain Solver, algorithm 2, WebAssembly':'RFL planet_tool.c terrestrial sampler',settings:runTerrain||terrainSettings,display_cloud_settings:{threshold:terrainSettings.cloudThreshold,frequency:terrainSettings.cloudFrequency,drift:terrainSettings.cloudDrift,shell_radius_ratio:CLOUD_RADIUS,detail:'Existing RFL 3D noise; each 2 × 2 High-res group preserves its climate cell mean coverage. Visual detail does not feed back into the solver.'},palette_rows:['land','coast','liquid','cloud'],palette:surfacePalette,cloud_source:cloudMode,grid:terrain.width+' longitude × '+terrain.rows+' Gaussian latitude; north to south; longitude 0° eastward',elevation_m:Array.from(terrain.elevation),land_mask:Array.from(terrain.land),terrain_affects_model:latest?.model!=='surface-estimate',colors_affect_albedo:false};}
 function clearReplay(){clearInterval(replayTimer);replayTimer=null;playback.playing=false;}
 function syncPlayback(){
