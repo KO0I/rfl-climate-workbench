@@ -63,7 +63,7 @@ function harness(){
  const tabs=['climate','planet','atmosphere','gas'].map(name=>{const tab=el('tab-'+name);tab.setAttribute('aria-controls','panel-'+name);return tab;});
  const generatorTabs=['quick','solver'].map(name=>{const tab=el('generator-tab-'+name);tab.setAttribute('aria-controls','generator-panel-'+name);return tab;});
  const panels=['map','planet'].map(name=>{const panel=new Element();panel.dataset.view=name;return panel;});
- const document={getElementById:el,createElement:()=>{const item=new Element();Object.defineProperty(item,'id',{set(value){this.identifier=value;elements.set(value,this);},get(){return this.identifier;}});return item;},createTextNode:text=>({textContent:text}),
+ const document={body:{classList:{toggle(){}}},getElementById:el,createElement:()=>{const item=new Element();Object.defineProperty(item,'id',{set(value){this.identifier=value;elements.set(value,this);},get(){return this.identifier;}});return item;},createTextNode:text=>({textContent:text}),
   querySelectorAll:q=>q==='.workspace-nav [role=tab]'?tabs:q==='.generator-tabs [role=tab]'?generatorTabs:q==='[role=tab]'?[...tabs,...generatorTabs]:q==='.playback'?panels:q==='.playback select'?panels.map(p=>p.querySelector('select')):q==='#terrain-controls input'?['seed','sea','frequency','relief'].map(k=>el('terrain-'+k)):[]};
  const timers=new Map(),intervals=new Map(),loads=[],solverLoads=[],workers=[],revoked=[];let timerId=0;
  class Worker {
@@ -73,6 +73,7 @@ function harness(){
  }
  const context=vm.createContext({document,window:{addEventListener(){}},ExoConfig:globalThis.ExoConfig,ExoTerrain:globalThis.ExoTerrain,
   initMagicTab:()=>({setActive(){},pauseForClimate(){}}),
+  initSaturnTab:()=>({setActive(){},setPreset(){}}),initPolarStormsTab:()=>({setActive(){}}),
   ...worlds,...surface,...palette,...clouds,Playback,Globe,drawCubeMap,randomSurface,errorMessage,AbortController,Worker,crypto:globalThis.crypto,solverDefaults,solverPreset,solverKnobs,
   generateSolver:(settings,seed,{signal})=>new Promise((resolve,reject)=>solverLoads.push({settings,seed,signal,resolve,reject})),
   URL:{revokeObjectURL:url=>revoked.push(url)},

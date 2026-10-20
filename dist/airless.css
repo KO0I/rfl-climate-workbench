@@ -1,0 +1,17 @@
+#airless-settings fieldset{border:0;margin:0;padding:0;min-width:0}
+#airless-settings input[type=range],#airless-light{padding:0;min-height:32px}
+#airless-settings output{float:right;color:var(--theme-soft);font-variant-numeric:tabular-nums}
+.airless-heading{display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap}
+.airless-heading h2{margin:8px 0 0}.airless-heading .mode{font-size:14px}
+.airless-views{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:center;margin:24px 0}
+.airless-views figure{margin:0;min-width:0}.airless-views figcaption{font-size:14px;color:var(--theme-soft);margin:8px 0}
+#airless-globe{display:block;width:100%;height:auto;aspect-ratio:1;touch-action:none;cursor:grab}
+#airless-map{display:block;width:100%;height:auto;aspect-ratio:2/1}
+#airless-globe,#airless-map{background:#030306;border:1px solid var(--theme-border);border-radius:12px;image-rendering:pixelated}
+.airless-view-controls{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.airless-exports{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}
+#airless-status{font-size:14px;line-height:1.6;color:var(--theme-soft)}
+#airless-settings .control-note,#panel-airless .control-note{font-size:14px}
+#airless-cancel{margin-top:10px;width:100%}
+@media(max-width:1050px){.airless-views{grid-template-columns:1fr}.airless-views figure:first-child{max-width:420px;margin:auto;width:100%}}
+@media(max-width:680px){body.airless-mode main{display:flex;flex-direction:column}body.airless-mode .workspace-nav{order:0}body.airless-mode .workspace{order:1}body.airless-mode #airless-settings{order:2}.airless-view-controls{grid-template-columns:1fr;gap:0}.airless-heading h2{font-size:24px}}
