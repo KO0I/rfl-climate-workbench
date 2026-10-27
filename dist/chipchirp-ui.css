@@ -28,3 +28,8 @@ button, input, select, textarea { accent-color: var(--cc-accent); }
 }
 
 :root{--cc-accent:#b69263;--cc-focus:#d5b58b;--cc-tint:#211a14;--cc-border:#423428;}
+
+/* Workbench identity: icon and name as a single wordmark. */
+.cc-wordmark{display:inline-flex;align-items:center;gap:.65rem;min-width:0;text-decoration:none}
+.cc-glyph{display:inline-block;flex:none;color:var(--cc-accent);font-family:"Noto Sans Egyptian Hieroglyphs","Segoe UI Historic",sans-serif;font-size:1.5em;font-weight:400;line-height:1}
+.cc-wordmark>span:last-child{min-width:0}
