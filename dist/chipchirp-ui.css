@@ -1,0 +1,30 @@
+/* ChipChirp shared UI foundation. Scoped to HTML controls; never affects canvas rendering. */
+:root {
+  --cc-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+  --cc-bg: #0f0e15;
+  --cc-panel: #09080f;
+  --cc-text: #eeeeee;
+  --cc-muted: #aaaaaa;
+  --cc-radius: 8px;
+  --cc-focus: #c69aff;
+  --cc-accent: #a67ca8;
+  --cc-tint: #1b101e;
+  --cc-border: #302835;
+}
+html { font-family: var(--cc-font); }
+body { font-family: var(--cc-font); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font-family: inherit; }
+button, input, select, textarea { accent-color: var(--cc-accent); }
+:where(button, input, select, textarea, a, summary):focus-visible {
+  outline: 2px solid var(--cc-focus);
+  outline-offset: 3px;
+}
+:where(button, select, input:not([type="range"]):not([type="checkbox"]):not([type="radio"]), textarea) {
+  border-radius: var(--cc-radius);
+}
+:where(h1,h2,h3,h4,h5,h6) { font-family: var(--cc-font); letter-spacing: -0.035em; }
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a, input, select) { transition-duration: 0.01ms; }
+}
+
+:root{--cc-accent:#b69263;--cc-focus:#d5b58b;--cc-tint:#211a14;--cc-border:#423428;}
