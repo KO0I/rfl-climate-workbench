@@ -33,3 +33,7 @@ button, input, select, textarea { accent-color: var(--cc-accent); }
 .cc-wordmark{display:inline-flex;align-items:center;gap:.65rem;min-width:0;text-decoration:none}
 .cc-glyph{display:inline-block;flex:none;color:var(--cc-accent);font-family:"Noto Sans Egyptian Hieroglyphs","Segoe UI Historic",sans-serif;font-size:1.5em;font-weight:400;line-height:1}
 .cc-wordmark>span:last-child{min-width:0}
+
+/* Exact Tools-page glyph color, distinct from the muted interface jewel hue. */
+:root{--cc-icon-color:#ffa500;}
+.cc-glyph{color:var(--cc-icon-color)}
