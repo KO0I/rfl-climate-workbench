@@ -1,0 +1,29 @@
+name: Notify RFL of asset changes
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dist/**'
+  release:
+    types: [published]
+permissions: {}
+concurrency:
+  group: notify-rfl-assets
+  cancel-in-progress: false
+jobs:
+  notify:
+    if: vars.RFL_ASSET_NOTIFICATIONS_ENABLED == 'true' && (github.event_name == 'push' || (!github.event.release.prerelease && !github.event.release.draft))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Notify the private collector without checking out upstream code
+        env:
+          GH_TOKEN: ${{ secrets.RFL_COLLECTOR_DISPATCH_TOKEN }}
+          SOURCE_REPO: ${{ github.repository }}
+          HAS_PACKAGE: ${{ github.event_name == 'push' || contains(github.event.release.assets.*.name, 'rfl-assets.zip') }}
+        run: |
+          set -euo pipefail
+          if [[ "$HAS_PACKAGE" != true ]]; then exit 0; fi
+          gh workflow run collect-workbench-assets.yml \
+            --repo KO0I/rasd-fastwalker-league-js --ref main \
+            -f source_repo="$SOURCE_REPO"
